@@ -1,0 +1,29 @@
+{
+  "expo": {
+    "name": "Happipet",
+    "slug": "happipet",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/images/icon.png",
+    "scheme": "happipet",
+    "userInterfaceStyle": "light",
+    "splash": {
+      "image": "./assets/images/splash-icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#f8f9fa"
+    },
+    "ios": {
+      "supportsTablet": true
+    },
+    "android": {
+      "adaptiveIcon": {
+        "backgroundColor": "#f8f9fa",
+        "foregroundImage": "./assets/images/android-icon-foreground.png"
+      },
+      "edgeToEdgeEnabled": false
+    },
+    "web": {
+      "favicon": "./assets/images/favicon.png"
+    }
+  }
+}
