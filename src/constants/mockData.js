@@ -122,8 +122,72 @@ export const mockSearchResults = [
   ...mockDogSitters.slice(0, 4),
 ];
 
+export const mockFeedPosts = [
+  {
+    id: '1',
+    author: { name: 'Camille R.', avatar: 'https://images.unsplash.com/photo-1494336442893-f2d90e0ed0d5?w=100&h=100&fit=crop', certified: true, role: 'sitter' },
+    sitterId: '1',
+    image: 'https://images.unsplash.com/photo-1558788353-f76d92427f16?w=600&h=600&fit=crop',
+    caption: 'Balade matinale avec ce beau Golden au Jardin du Luxembourg 🌿🐕 Il adore courir après les feuilles !',
+    animal: { name: 'Rex', breed: 'Golden Retriever' },
+    likes: 47,
+    timeAgo: 'Il y a 2h',
+  },
+  {
+    id: '2',
+    author: { name: 'Thomas L.', avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=100&h=100&fit=crop', certified: false, role: 'sitter', topSitter: true },
+    sitterId: '2',
+    image: 'https://images.unsplash.com/photo-1587300003388-59208cc962cb?w=600&h=600&fit=crop',
+    caption: 'Luna s\'est faite une nouvelle copine au parc aujourd\'hui ! Deux bergers australiens inséparables 💙',
+    animal: { name: 'Luna', breed: 'Berger Australien' },
+    likes: 83,
+    timeAgo: 'Il y a 4h',
+  },
+  {
+    id: '3',
+    author: { name: 'Emmanuel', avatar: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=100&h=100&fit=crop', certified: false, role: 'owner' },
+    sitterId: null,
+    image: 'https://images.unsplash.com/photo-1552053831-71594a27c62d?w=600&h=600&fit=crop',
+    caption: 'Mon Rex qui rentre de sa garde chez Camille, épuisé mais heureux 😴❤️ Merci pour cette super semaine !',
+    animal: { name: 'Rex', breed: 'Golden Retriever' },
+    likes: 124,
+    timeAgo: 'Il y a 6h',
+  },
+  {
+    id: '4',
+    author: { name: 'Marie L.', avatar: 'https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=100&h=100&fit=crop', certified: true, role: 'sitter' },
+    sitterId: '3',
+    image: 'https://images.unsplash.com/photo-1444370266261-f9a13fb5f30b?w=600&h=600&fit=crop',
+    caption: 'Séance câlins dans le jardin avec Milo 🐾 Il s\'est endormi dans mes bras après une longue promenade.',
+    animal: { name: 'Milo', breed: 'Cavalier King Charles' },
+    likes: 61,
+    timeAgo: 'Il y a 8h',
+  },
+  {
+    id: '5',
+    author: { name: 'Thomas B.', avatar: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=100&h=100&fit=crop', certified: true, role: 'sitter', topSitter: true },
+    sitterId: '4',
+    image: 'https://images.unsplash.com/photo-1560047308-dd1b900e3cb1?w=600&h=600&fit=crop',
+    caption: 'Oscar découvre la neige pour la première fois ! ❄️🐶 Le Marais sous la neige c\'est magique.',
+    animal: { name: 'Oscar', breed: 'Bouledogue Français' },
+    likes: 215,
+    timeAgo: 'Hier',
+  },
+  {
+    id: '6',
+    author: { name: 'Sophie M.', avatar: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=100&h=100&fit=crop', certified: false, role: 'owner' },
+    sitterId: null,
+    image: 'https://images.unsplash.com/photo-1470099949338-91b8ee546e31?w=600&h=600&fit=crop',
+    caption: 'Nala en mode top model après son passage chez le toiletteur 💅✨ Qui est la plus belle ?',
+    animal: { name: 'Nala', breed: 'Caniche Royal' },
+    likes: 92,
+    timeAgo: 'Hier',
+  },
+];
+
 export default {
   mockDogSitters,
   mockConversations,
   mockSearchResults,
+  mockFeedPosts,
 };

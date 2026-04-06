@@ -1,100 +1,132 @@
 import { MaterialIcons } from '@expo/vector-icons';
 import { useState } from 'react';
 import {
-  ScrollView,
+  Dimensions,
+  FlatList,
+  Image,
   StyleSheet,
   Text,
   TouchableOpacity,
   View
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { DogSitterCard, FilterChip, Header, SearchInput } from '../components';
+import { Header } from '../components';
 import Colors from '../constants/colors';
-import { mockDogSitters } from '../constants/mockData';
+import { mockDogSitters, mockFeedPosts } from '../constants/mockData';
+
+const { width } = Dimensions.get('window');
+
+const FeedPost = ({ post, onLike, onProfilePress }) => {
+  const [liked, setLiked] = useState(false);
+  const [likesCount, setLikesCount] = useState(post.likes);
+
+  const handleLike = () => {
+    setLiked(!liked);
+    setLikesCount(prev => liked ? prev - 1 : prev + 1);
+  };
+
+  return (
+    <View style={styles.postCard}>
+      {/* Post Header */}
+      <TouchableOpacity
+        style={styles.postHeader}
+        onPress={() => onProfilePress(post)}
+        activeOpacity={0.7}
+      >
+        <Image source={{ uri: post.author.avatar }} style={styles.authorAvatar} />
+        <View style={styles.authorInfo}>
+          <View style={styles.authorNameRow}>
+            <Text style={styles.authorName}>{post.author.name}</Text>
+            {post.author.certified && (
+              <MaterialIcons name="verified" size={14} color={Colors.secondary} />
+            )}
+            {post.author.topSitter && (
+              <View style={styles.topBadge}>
+                <Text style={styles.topBadgeText}>TOP</Text>
+              </View>
+            )}
+          </View>
+          <Text style={styles.postTime}>
+            {post.author.role === 'sitter' ? '🐕 Gardien' : '👤 Propriétaire'} · {post.timeAgo}
+          </Text>
+        </View>
+        <TouchableOpacity style={styles.moreButton}>
+          <MaterialIcons name="more-horiz" size={20} color={Colors.onSurfaceVariant} />
+        </TouchableOpacity>
+      </TouchableOpacity>
+
+      {/* Post Image */}
+      <Image source={{ uri: post.image }} style={styles.postImage} resizeMode="cover" />
+
+      {/* Actions */}
+      <View style={styles.postActions}>
+        <View style={styles.postActionsLeft}>
+          <TouchableOpacity style={styles.actionButton} onPress={handleLike}>
+            <MaterialIcons
+              name={liked ? 'favorite' : 'favorite-border'}
+              size={24}
+              color={liked ? Colors.error : Colors.onSurface}
+            />
+          </TouchableOpacity>
+          <Text style={styles.likesCount}>{likesCount}</Text>
+        </View>
+        {post.author.role === 'sitter' && post.sitterId && (
+          <TouchableOpacity
+            style={styles.bookButton}
+            onPress={() => onProfilePress(post)}
+          >
+            <Text style={styles.bookButtonText}>Voir le profil</Text>
+            <MaterialIcons name="arrow-forward" size={14} color={Colors.primary} />
+          </TouchableOpacity>
+        )}
+      </View>
+
+      {/* Caption */}
+      <View style={styles.captionContainer}>
+        <Text style={styles.captionText}>
+          <Text style={styles.captionAuthor}>{post.author.name} </Text>
+          {post.caption}
+        </Text>
+      </View>
+
+      {/* Animal Tag */}
+      <View style={styles.animalTag}>
+        <MaterialIcons name="pets" size={12} color={Colors.secondary} />
+        <Text style={styles.animalTagText}>
+          {post.animal.name} · {post.animal.breed}
+        </Text>
+      </View>
+    </View>
+  );
+};
 
 export const HomeScreen = ({ navigation }) => {
-  const [location, setLocation] = useState('');
-  const [selectedAnimal, setSelectedAnimal] = useState('Chien');
-
-  const animals = ['Chien', 'Chat', 'Autre'];
-
-  const handleSitterPress = (sitter) => {
-    navigation.navigate('Profile', { sitter });
+  const handleProfilePress = (post) => {
+    if (post.sitterId) {
+      const sitter = mockDogSitters.find(s => s.id === post.sitterId);
+      if (sitter) {
+        navigation.navigate('Profile', { sitter });
+      }
+    }
   };
 
   return (
     <SafeAreaView style={styles.container}>
       <Header onNotificationPress={() => navigation.navigate('Notifications')} />
-      <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
-        {/* Search Section */}
-        <View style={styles.section}>
-          <View style={styles.titleContainer}>
-            <Text style={styles.mainTitle}>Où voulez-vous faire{'\n'}garder votre compagnon ?</Text>
-            <Text style={styles.subtitle}>Trouvez le gardien idéal près de chez vous.</Text>
-          </View>
-
-          <View style={styles.searchCard}>
-            <SearchInput icon="location_on" placeholder="Ville ou code postal" onChangeText={setLocation} />
-            <View style={styles.dateInput}>
-              <MaterialIcons name="calendar_month" size={20} color={Colors.primary} />
-              <View style={styles.dateInputText}>
-                <Text style={styles.dateLabel}>Quand ?</Text>
-                <Text style={styles.dateValue}>Ajouter des dates</Text>
-              </View>
-            </View>
-          </View>
-        </View>
-
-        {/* Quick Filters */}
-        <View style={styles.filtersSection}>
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            style={styles.filterScroll}
-          >
-            {animals.map((animal) => (
-              <FilterChip
-                key={animal}
-                label={animal}
-                selected={selectedAnimal === animal}
-                onPress={() => setSelectedAnimal(animal)}
-                icon={
-                  <MaterialIcons
-                    name="pets"
-                    size={16}
-                    color={
-                      selectedAnimal === animal
-                        ? Colors.onPrimaryContainer
-                        : Colors.onSurface
-                    }
-                  />
-                }
-              />
-            ))}
-          </ScrollView>
-        </View>
-
-        {/* Popular Sitters */}
-        <View style={styles.section}>
-          <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>Dogsitters populaires près de chez vous</Text>
-            <TouchableOpacity onPress={() => navigation.navigate('Search')}>
-              <Text style={styles.seeAllButton}>Voir tout</Text>
-            </TouchableOpacity>
-          </View>
-
-          {mockDogSitters.slice(0, 3).map((sitter) => (
-            <DogSitterCard
-              key={sitter.id}
-              sitter={sitter}
-              onPress={() => handleSitterPress(sitter)}
-            />
-          ))}
-        </View>
-
-        {/* Extra space for bottom navigation */}
-        <View style={{ height: 40 }} />
-      </ScrollView>
+      <FlatList
+        data={mockFeedPosts}
+        keyExtractor={(item) => item.id}
+        renderItem={({ item }) => (
+          <FeedPost
+            post={item}
+            onProfilePress={handleProfilePress}
+          />
+        )}
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={styles.feedList}
+        ItemSeparatorComponent={() => <View style={styles.separator} />}
+        ListFooterComponent={<View style={{ height: 40 }} />}
+      />
     </SafeAreaView>
   );
 };
@@ -104,86 +136,125 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: Colors.surface,
   },
-  scrollView: {
-    flex: 1,
+  feedList: {
+    paddingTop: 4,
   },
-  section: {
-    paddingHorizontal: 16,
-    paddingVertical: 20,
+  separator: {
+    height: 8,
+    backgroundColor: Colors.surfaceContainerHigh,
   },
-  titleContainer: {
-    marginBottom: 20,
-  },
-  mainTitle: {
-    fontSize: 28,
-    fontWeight: '800',
-    color: Colors.onSurface,
-    marginBottom: 8,
-    lineHeight: 36,
-  },
-  subtitle: {
-    fontSize: 16,
-    color: Colors.onSurfaceVariant,
-    lineHeight: 22,
-  },
-  searchCard: {
+  postCard: {
     backgroundColor: Colors.surfaceContainerLowest,
-    borderRadius: 16,
-    padding: 8,
-    elevation: 4,
-    shadowColor: Colors.shadow,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 8,
   },
-  dateInput: {
+  postHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
-    paddingHorizontal: 16,
+    paddingHorizontal: 14,
     paddingVertical: 12,
-    backgroundColor: Colors.surfaceContainerLow,
-    borderRadius: 12,
-    marginTop: 8,
   },
-  dateInputText: {
+  authorAvatar: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    borderWidth: 2,
+    borderColor: Colors.primaryContainer,
+  },
+  authorInfo: {
     flex: 1,
-    gap: 2,
+    marginLeft: 10,
   },
-  dateLabel: {
-    fontSize: 11,
+  authorNameRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  authorName: {
+    fontSize: 14,
     fontWeight: '700',
-    color: Colors.outline,
-    textTransform: 'uppercase',
+    color: Colors.onSurface,
+  },
+  topBadge: {
+    backgroundColor: Colors.tertiary,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 6,
+  },
+  topBadgeText: {
+    fontSize: 8,
+    fontWeight: '800',
+    color: Colors.onTertiary,
     letterSpacing: 0.5,
   },
-  dateValue: {
-    fontSize: 14,
-    fontWeight: '600',
+  postTime: {
+    fontSize: 12,
     color: Colors.onSurfaceVariant,
+    marginTop: 2,
   },
-  filtersSection: {
-    paddingVertical: 8,
-    paddingHorizontal: 16,
+  moreButton: {
+    padding: 4,
   },
-  filterScroll: {
-    flexGrow: 0,
+  postImage: {
+    width: width,
+    height: width,
   },
-  sectionHeader: {
+  postActions: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 16,
+    justifyContent: 'space-between',
+    paddingHorizontal: 14,
+    paddingVertical: 10,
   },
-  sectionTitle: {
-    fontSize: 18,
+  postActionsLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  actionButton: {
+    padding: 2,
+  },
+  likesCount: {
+    fontSize: 14,
     fontWeight: '700',
     color: Colors.onSurface,
   },
-  seeAllButton: {
-    fontSize: 13,
+  bookButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 20,
+    borderWidth: 1.5,
+    borderColor: Colors.primary,
+  },
+  bookButtonText: {
+    fontSize: 12,
     fontWeight: '700',
     color: Colors.primary,
+  },
+  captionContainer: {
+    paddingHorizontal: 14,
+    paddingBottom: 8,
+  },
+  captionText: {
+    fontSize: 13,
+    color: Colors.onSurface,
+    lineHeight: 19,
+  },
+  captionAuthor: {
+    fontWeight: '700',
+  },
+  animalTag: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 14,
+    paddingBottom: 14,
+  },
+  animalTagText: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: Colors.secondary,
   },
 });
 

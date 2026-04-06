@@ -5,6 +5,7 @@ import {
     ScrollView,
     StyleSheet,
     Text,
+    TextInput,
     TouchableOpacity,
     View
 } from 'react-native';
@@ -71,7 +72,11 @@ const SearchResultCard = ({ sitter, onPress }) => {
 
 export const SearchScreen = ({ navigation }) => {
   const [selectedFilter, setSelectedFilter] = useState('Prix');
+  const [location, setLocation] = useState('');
+  const [selectedAnimal, setSelectedAnimal] = useState('Chien');
+  const [searchActive, setSearchActive] = useState(false);
   const filters = ['Prix', "Type d'hébergement", 'Disponibilité', 'Rayon +5km'];
+  const animals = ['Chien', 'Chat', 'Autre'];
 
   const handleSitterPress = (sitter) => {
     navigation.navigate('ProfileSearch', { sitter });
@@ -79,17 +84,60 @@ export const SearchScreen = ({ navigation }) => {
 
   return (
     <SafeAreaView style={styles.container}>
-      <View style={styles.searchHeader}>
-        <View style={styles.searchBox}>
-          <MaterialIcons name="search" size={18} color={Colors.outline} />
-          <Text style={styles.searchBoxText}>Paris, France</Text>
-        </View>
-        <TouchableOpacity style={styles.filterButton}>
-          <MaterialIcons name="tune" size={20} color={Colors.onSurfaceVariant} />
-        </TouchableOpacity>
-      </View>
-
       <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
+        {/* Search Section */}
+        <View style={styles.searchSection}>
+          <Text style={styles.searchTitle}>Où voulez-vous faire{'\n'}garder votre compagnon ?</Text>
+          <Text style={styles.searchSubtitle}>Trouvez le gardien idéal près de chez vous.</Text>
+
+          <View style={styles.searchCard}>
+            <View style={styles.searchInputRow}>
+              <MaterialIcons name="location-on" size={20} color={Colors.primary} />
+              <TextInput
+                style={styles.searchInput}
+                placeholder="Ville ou code postal"
+                placeholderTextColor={Colors.outlineVariant}
+                value={location}
+                onChangeText={setLocation}
+              />
+            </View>
+            <View style={styles.dateInput}>
+              <MaterialIcons name="event" size={20} color={Colors.primary} />
+              <View style={styles.dateInputText}>
+                <Text style={styles.dateLabel}>Quand ?</Text>
+                <Text style={styles.dateValue}>Ajouter des dates</Text>
+              </View>
+            </View>
+            <TouchableOpacity style={styles.searchCta} onPress={() => setSearchActive(true)}>
+              <MaterialIcons name="search" size={20} color={Colors.onPrimary} />
+              <Text style={styles.searchCtaText}>Rechercher</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+
+        {/* Animal Filters */}
+        <View style={styles.animalFilters}>
+          {animals.map((animal) => (
+            <FilterChip
+              key={animal}
+              label={animal}
+              selected={selectedAnimal === animal}
+              onPress={() => setSelectedAnimal(animal)}
+              icon={
+                <MaterialIcons
+                  name="pets"
+                  size={16}
+                  color={
+                    selectedAnimal === animal
+                      ? Colors.onPrimaryContainer
+                      : Colors.onSurface
+                  }
+                />
+              }
+            />
+          ))}
+        </View>
+
         {/* Filters */}
         <ScrollView
           horizontal
@@ -108,7 +156,7 @@ export const SearchScreen = ({ navigation }) => {
 
         {/* Results Title */}
         <View style={styles.resultsHeader}>
-          <Text style={styles.resultsCount}>{mockDogSitters.length} dogsitters à Paris</Text>
+          <Text style={styles.resultsCount}>{mockDogSitters.length} dogsitters{location ? ` à ${location}` : ' à Paris'}</Text>
           <Text style={styles.resultsSubtitle}>
             Disponibles pour vos dates sélectionnées
           </Text>
@@ -136,51 +184,108 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: Colors.surface,
   },
-  searchHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    backgroundColor: Colors.surface,
-    borderBottomWidth: 1,
-    borderBottomColor: Colors.surfaceContainerHigh,
-  },
-  searchBox: {
+  content: {
     flex: 1,
+  },
+  searchSection: {
+    paddingHorizontal: 16,
+    paddingTop: 20,
+    paddingBottom: 12,
+  },
+  searchTitle: {
+    fontSize: 24,
+    fontWeight: '800',
+    color: Colors.onSurface,
+    marginBottom: 6,
+    lineHeight: 32,
+  },
+  searchSubtitle: {
+    fontSize: 14,
+    color: Colors.onSurfaceVariant,
+    marginBottom: 16,
+    lineHeight: 20,
+  },
+  searchCard: {
+    backgroundColor: Colors.surfaceContainerLowest,
+    borderRadius: 16,
+    padding: 10,
+    elevation: 4,
+    shadowColor: Colors.shadow,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 8,
+  },
+  searchInputRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    backgroundColor: Colors.surfaceContainerLow,
+    borderRadius: 12,
+  },
+  searchInput: {
+    flex: 1,
+    fontSize: 14,
+    fontWeight: '500',
+    color: Colors.onSurface,
+    padding: 0,
+  },
+  dateInput: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    backgroundColor: Colors.surfaceContainerLow,
+    borderRadius: 12,
+    marginTop: 8,
+  },
+  dateInputText: {
+    flex: 1,
+    gap: 2,
+  },
+  dateLabel: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: Colors.outline,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  dateValue: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: Colors.onSurfaceVariant,
+  },
+  searchCta: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    paddingVertical: 14,
+    backgroundColor: Colors.primary,
+    borderRadius: 12,
+    marginTop: 10,
+  },
+  searchCtaText: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: Colors.onPrimary,
+  },
+  animalFilters: {
+    flexDirection: 'row',
     paddingHorizontal: 16,
     paddingVertical: 8,
-    backgroundColor: Colors.surfaceContainerLowest,
-    borderRadius: 24,
-    borderWidth: 1,
-    borderColor: Colors.outlineVariant,
-  },
-  searchBoxText: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: Colors.onSurface,
-  },
-  filterButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: Colors.surfaceContainerLow,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  content: {
-    flex: 1,
-    paddingHorizontal: 16,
+    gap: 8,
   },
   filtersContainer: {
-    marginVertical: 12,
-    paddingBottom: 8,
+    marginVertical: 8,
+    paddingHorizontal: 16,
+    paddingBottom: 4,
   },
   resultsHeader: {
     marginVertical: 16,
+    paddingHorizontal: 16,
   },
   resultsCount: {
     fontSize: 24,
@@ -195,6 +300,7 @@ const styles = StyleSheet.create({
   },
   resultsContainer: {
     gap: 12,
+    paddingHorizontal: 16,
   },
   resultCard: {
     backgroundColor: Colors.surfaceContainerLowest,
