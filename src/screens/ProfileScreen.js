@@ -1,16 +1,14 @@
-import React from 'react';
-import {
-  View,
-  Text,
-  ScrollView,
-  StyleSheet,
-  TouchableOpacity,
-  Image,
-  SafeAreaView,
-  ImageBackground,
-} from 'react-native';
-import Colors from '../constants/colors';
 import { MaterialIcons } from '@expo/vector-icons';
+import {
+    Image,
+    ScrollView,
+    StyleSheet,
+    Text,
+    TouchableOpacity,
+    View
+} from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import Colors from '../constants/colors';
 
 const ReviewItem = ({ review }) => {
   return (

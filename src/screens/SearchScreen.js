@@ -1,18 +1,17 @@
-import React, { useState } from 'react';
-import {
-  View,
-  Text,
-  ScrollView,
-  StyleSheet,
-  TouchableOpacity,
-  Image,
-  SafeAreaView,
-  FlatList,
-} from 'react-native';
-import Colors from '../constants/colors';
-import { Header, FilterChip } from '../components';
-import { mockDogSitters } from '../constants/mockData';
 import { MaterialIcons } from '@expo/vector-icons';
+import { useState } from 'react';
+import {
+    Image,
+    ScrollView,
+    StyleSheet,
+    Text,
+    TouchableOpacity,
+    View
+} from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { FilterChip } from '../components';
+import Colors from '../constants/colors';
+import { mockDogSitters } from '../constants/mockData';
 
 const SearchResultCard = ({ sitter, onPress }) => {
   return (

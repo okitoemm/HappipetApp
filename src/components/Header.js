@@ -1,26 +1,23 @@
-import React from 'react';
-import { View, Text, TouchableOpacity, SafeAreaView, StyleSheet } from 'react-native';
+import { MaterialIcons } from '@expo/vector-icons';
+import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import Colors from '../constants/colors';
-import { MaterialIcons, MaterialCommunityIcons } from '@expo/vector-icons';
 
 export const Header = ({ title, onNotificationPress, showNotification = true }) => {
   return (
-    <SafeAreaView style={styles.safeArea}>
-      <View style={styles.container}>
-        <View style={styles.logoContainer}>
-          <MaterialIcons name="pets" size={24} color={Colors.primary} />
-          <Text style={styles.title}>Happipet</Text>
-        </View>
-        {showNotification && (
-          <TouchableOpacity
-            style={styles.notificationButton}
-            onPress={onNotificationPress}
-          >
-            <MaterialIcons name="notifications" size={20} color={Colors.onSurfaceVariant} />
-          </TouchableOpacity>
-        )}
+    <View style={styles.container}>
+      <View style={styles.logoContainer}>
+        <MaterialIcons name="pets" size={24} color={Colors.primary} />
+        <Text style={styles.title}>Happipet</Text>
       </View>
-    </SafeAreaView>
+      {showNotification && (
+        <TouchableOpacity
+          style={styles.notificationButton}
+          onPress={onNotificationPress}
+        >
+          <MaterialIcons name="notifications" size={20} color={Colors.onSurfaceVariant} />
+        </TouchableOpacity>
+      )}
+    </View>
   );
 };
 

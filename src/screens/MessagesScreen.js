@@ -1,18 +1,16 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import {
-  View,
-  Text,
-  ScrollView,
-  StyleSheet,
-  TouchableOpacity,
-  SafeAreaView,
-  FlatList,
-  Image,
+    Image,
+    ScrollView,
+    StyleSheet,
+    Text,
+    TouchableOpacity,
+    View
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { ConversationItem, Header } from '../components';
 import Colors from '../constants/colors';
-import { Header, ConversationItem } from '../components';
 import { mockConversations } from '../constants/mockData';
-import { MaterialIcons } from '@expo/vector-icons';
 
 const StoriesList = () => {
   const stories = mockConversations.slice(0, 4);

@@ -1,17 +1,16 @@
-import React, { useState } from 'react';
+import { MaterialIcons } from '@expo/vector-icons';
+import { useState } from 'react';
 import {
-  View,
-  Text,
-  ScrollView,
-  StyleSheet,
-  TouchableOpacity,
-  FlatList,
-  SafeAreaView,
+    ScrollView,
+    StyleSheet,
+    Text,
+    TouchableOpacity,
+    View
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { DogSitterCard, FilterChip, Header, SearchInput } from '../components';
 import Colors from '../constants/colors';
 import { mockDogSitters } from '../constants/mockData';
-import { Header, DogSitterCard, SearchInput, FilterChip } from '../components';
-import { MaterialIcons } from '@expo/vector-icons';
 
 export const HomeScreen = ({ navigation }) => {
   const [location, setLocation] = useState('');

@@ -113,9 +113,7 @@ export const Navigation = () => {
             backgroundColor: Colors.surface,
             borderTopColor: Colors.surfaceContainerHigh,
             borderTopWidth: 1,
-            paddingBottom: 8,
             paddingTop: 8,
-            height: 60,
           },
           tabBarLabelStyle: {
             fontSize: 11,
