@@ -4,7 +4,20 @@ import { NavigationContainer } from '@react-navigation/native';
 import { createStackNavigator } from '@react-navigation/stack';
 
 import Colors from '../constants/colors';
-import { HomeScreen, MessagesScreen, ProfileScreen, SearchScreen } from '../screens';
+import {
+  BookingConfirmationScreen,
+  BookingScreen,
+  ChatScreen,
+  FavoritesScreen,
+  HomeScreen,
+  MessagesScreen,
+  MyBookingsScreen,
+  NotificationsScreen,
+  ProfileScreen,
+  SearchScreen,
+  SettingsScreen,
+  UserProfileScreen,
+} from '../screens';
 
 const Tab = createBottomTabNavigator();
 const Stack = createStackNavigator();
@@ -18,13 +31,10 @@ const HomeStack = () => {
       }}
     >
       <Stack.Screen name="HomeMain" component={HomeScreen} />
-      <Stack.Screen
-        name="Profile"
-        component={ProfileScreen}
-        options={{
-          animationEnabled: true,
-        }}
-      />
+      <Stack.Screen name="Profile" component={ProfileScreen} />
+      <Stack.Screen name="Booking" component={BookingScreen} />
+      <Stack.Screen name="BookingConfirmation" component={BookingConfirmationScreen} />
+      <Stack.Screen name="Notifications" component={NotificationsScreen} />
     </Stack.Navigator>
   );
 };
@@ -38,13 +48,9 @@ const SearchStack = () => {
       }}
     >
       <Stack.Screen name="SearchMain" component={SearchScreen} />
-      <Stack.Screen
-        name="ProfileSearch"
-        component={ProfileScreen}
-        options={{
-          animationEnabled: true,
-        }}
-      />
+      <Stack.Screen name="ProfileSearch" component={ProfileScreen} />
+      <Stack.Screen name="Booking" component={BookingScreen} />
+      <Stack.Screen name="BookingConfirmation" component={BookingConfirmationScreen} />
     </Stack.Navigator>
   );
 };
@@ -58,6 +64,7 @@ const MessagesStack = () => {
       }}
     >
       <Stack.Screen name="MessagesMain" component={MessagesScreen} />
+      <Stack.Screen name="Chat" component={ChatScreen} />
     </Stack.Navigator>
   );
 };
@@ -70,13 +77,11 @@ const ProfileTabScreen = () => {
         cardStyle: { backgroundColor: Colors.surface },
       }}
     >
-      <Stack.Screen 
-        name="ProfileTab" 
-        component={HomeScreen}
-        options={{
-          title: 'Mon Profil',
-        }}
-      />
+      <Stack.Screen name="UserProfile" component={UserProfileScreen} />
+      <Stack.Screen name="Settings" component={SettingsScreen} />
+      <Stack.Screen name="MyBookings" component={MyBookingsScreen} />
+      <Stack.Screen name="Favorites" component={FavoritesScreen} />
+      <Stack.Screen name="Notifications" component={NotificationsScreen} />
     </Stack.Navigator>
   );
 };

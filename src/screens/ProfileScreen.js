@@ -97,7 +97,7 @@ export const ProfileScreen = ({ route, navigation }) => {
               <Text style={styles.profileName}>{sitter.name}, Amoureuse des animaux</Text>
               <View style={styles.locationRow}>
                 <MaterialIcons name="location_on" size={18} color={Colors.secondary} />
-                <Text style={styles.locationText}>Lyon, 69002</Text>
+                <Text style={styles.locationText}>{sitter.location || 'Lyon, 69002'}</Text>
               </View>
             </View>
             <View style={styles.statsContainer}>
@@ -163,10 +163,19 @@ export const ProfileScreen = ({ route, navigation }) => {
 
           {/* CTA Buttons */}
           <View style={styles.ctaContainer}>
-            <TouchableOpacity style={styles.ctaButtonPrimary}>
+            <TouchableOpacity
+              style={styles.ctaButtonPrimary}
+              onPress={() => navigation.navigate('Booking', { sitter })}
+            >
               <Text style={styles.ctaButtonText}>Demander une garde</Text>
             </TouchableOpacity>
-            <TouchableOpacity style={styles.ctaButtonSecondary}>
+            <TouchableOpacity
+              style={styles.ctaButtonSecondary}
+              onPress={() => navigation.navigate('Messages', {
+                screen: 'Chat',
+                params: { conversation: { id: sitter.id, name: sitter.name, image: sitter.image, online: true } },
+              })}
+            >
               <MaterialIcons name="chat" size={18} color={Colors.primary} />
               <Text style={styles.ctaButtonSecondaryText}>Envoyer un message</Text>
             </TouchableOpacity>
@@ -202,7 +211,7 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     height: 150,
-    background: 'linear-gradient(to bottom, transparent, rgba(248, 249, 250, 1))',
+    backgroundColor: 'rgba(248, 249, 250, 0.6)',
   },
   heroButtons: {
     position: 'absolute',

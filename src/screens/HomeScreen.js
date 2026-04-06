@@ -1,11 +1,11 @@
 import { MaterialIcons } from '@expo/vector-icons';
 import { useState } from 'react';
 import {
-    ScrollView,
-    StyleSheet,
-    Text,
-    TouchableOpacity,
-    View
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { DogSitterCard, FilterChip, Header, SearchInput } from '../components';
@@ -24,7 +24,7 @@ export const HomeScreen = ({ navigation }) => {
 
   return (
     <SafeAreaView style={styles.container}>
-      <Header />
+      <Header onNotificationPress={() => navigation.navigate('Notifications')} />
       <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
         {/* Search Section */}
         <View style={styles.section}>

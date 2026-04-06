@@ -108,7 +108,7 @@ export const SearchScreen = ({ navigation }) => {
 
         {/* Results Title */}
         <View style={styles.resultsHeader}>
-          <Text style={styles.resultsCount}>32 dogsitters à Paris</Text>
+          <Text style={styles.resultsCount}>{mockDogSitters.length} dogsitters à Paris</Text>
           <Text style={styles.resultsSubtitle}>
             Disponibles pour vos dates sélectionnées
           </Text>
