@@ -57,7 +57,29 @@ export const mockDogSitters = [
     topSitter: false,
     image: 'https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=400&h=400&fit=crop',
     tags: ['JARDIN FERMÉ', 'SOINS MÉDICAUX'],
-    description: 'Maison avec grand jardin sécurisé pour enfants et animaux.',
+    description: 'Maison avec grand jardin sécurisé pour enfants et animaux. J\'adore les promenades au parc avec vos compagnons.',
+    services: ['Hébergement', 'Promenade', 'Soins médicaux'],
+    gallery: [
+      'https://images.unsplash.com/photo-1444370266261-f9a13fb5f30b?w=300&h=300&fit=crop',
+      'https://images.unsplash.com/photo-1560047308-dd1b900e3cb1?w=300&h=300&fit=crop',
+      'https://images.unsplash.com/photo-1587300003388-59208cc962cb?w=300&h=400&fit=crop',
+    ],
+    reviews_data: [
+      {
+        id: '1',
+        reviewer: 'Sophie M.',
+        rating: 5,
+        date: 'Il y a 1 semaine',
+        comment: 'Marie est très attentionnée. Notre chien était heureux et détendu à notre retour. Je recommande !',
+      },
+      {
+        id: '2',
+        reviewer: 'Lucas R.',
+        rating: 5,
+        date: 'Il y a 2 semaines',
+        comment: 'Excellent service, jardin magnifique. Nos deux chiens ont adoré.',
+      },
+    ],
   },
   {
     id: '4',
@@ -70,7 +92,30 @@ export const mockDogSitters = [
     topSitter: true,
     image: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=400&h=400&fit=crop',
     tags: ['PARCS VERTS', 'PHOTOS QUOTIDIENNES'],
-    description: 'Expert en comportement canin avec 5 ans d\'expérience.',
+    description: 'Expert en comportement canin avec 5 ans d\'expérience. Je m\'occupe de votre animal comme si c\'était le mien.',
+    services: ['Promenade', 'Hébergement', 'Éducation canine', 'Photos quotidiennes'],
+    gallery: [
+      'https://images.unsplash.com/photo-1558788353-f76d92427f16?w=300&h=300&fit=crop',
+      'https://images.unsplash.com/photo-1633722715463-d30628ceb4d2?w=300&h=300&fit=crop',
+      'https://images.unsplash.com/photo-1552053831-71594a27c62d?w=300&h=400&fit=crop',
+      'https://images.unsplash.com/photo-1470099949338-91b8ee546e31?w=300&h=300&fit=crop',
+    ],
+    reviews_data: [
+      {
+        id: '1',
+        reviewer: 'Marie D.',
+        rating: 5,
+        date: 'Il y a 3 jours',
+        comment: 'Thomas est incroyable ! Il nous a envoyé des photos adorables chaque jour. Notre Bouledogue l\'a adoré.',
+      },
+      {
+        id: '2',
+        reviewer: 'Pierre L.',
+        rating: 5,
+        date: 'Il y a 1 mois',
+        comment: 'Service impeccable, très professionnel. Le meilleur gardien de Paris.',
+      },
+    ],
   },
 ];
 

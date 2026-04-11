@@ -1,4 +1,5 @@
 import { MaterialIcons } from '@expo/vector-icons';
+import { useState } from 'react';
 import {
     FlatList,
     StyleSheet,
@@ -9,7 +10,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Colors from '../constants/colors';
 
-const mockNotifications = [
+const initialNotifications = [
   { id: '1', type: 'booking', title: 'Réservation confirmée', body: 'Camille R. a accepté votre demande de garde pour Rex.', time: 'Il y a 2h', read: false, icon: 'check-circle', color: '#4CAF50' },
   { id: '2', type: 'message', title: 'Nouveau message', body: 'Marc vous a envoyé un message.', time: 'Il y a 5h', read: false, icon: 'chat', color: Colors.secondary },
   { id: '3', type: 'reminder', title: 'Rappel garde demain', body: 'N\'oubliez pas de déposer Rex chez Camille demain à 9h.', time: 'Hier', read: true, icon: 'notifications', color: Colors.primary },
@@ -18,8 +19,12 @@ const mockNotifications = [
   { id: '6', type: 'booking', title: 'Garde terminée', body: 'La garde de Rex chez Marie L. est terminée. Rex va bien !', time: 'Il y a 1 sem', read: true, icon: 'pets', color: Colors.primary },
 ];
 
-const NotificationItem = ({ notification }) => (
-  <TouchableOpacity style={[styles.notifItem, !notification.read && styles.notifItemUnread]} activeOpacity={0.7}>
+const NotificationItem = ({ notification, onPress }) => (
+  <TouchableOpacity
+    style={[styles.notifItem, !notification.read && styles.notifItemUnread]}
+    activeOpacity={0.7}
+    onPress={onPress}
+  >
     <View style={[styles.notifIcon, { backgroundColor: notification.color + '20' }]}>
       <MaterialIcons name={notification.icon} size={22} color={notification.color} />
     </View>
@@ -35,6 +40,24 @@ const NotificationItem = ({ notification }) => (
 );
 
 export const NotificationsScreen = ({ navigation }) => {
+  const [notifications, setNotifications] = useState(initialNotifications);
+
+  const markAllRead = () => {
+    setNotifications(prev => prev.map(n => ({ ...n, read: true })));
+  };
+
+  const handleNotifPress = (notif) => {
+    setNotifications(prev => prev.map(n => n.id === notif.id ? { ...n, read: true } : n));
+    if (notif.type === 'message') {
+      navigation.navigate('Home');
+      setTimeout(() => navigation.navigate('Messages'), 100);
+    } else if (notif.type === 'booking') {
+      navigation.navigate('MyBookings');
+    }
+  };
+
+  const unreadCount = notifications.filter(n => !n.read).length;
+
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
@@ -42,15 +65,15 @@ export const NotificationsScreen = ({ navigation }) => {
           <MaterialIcons name="arrow-back" size={24} color={Colors.onSurface} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Notifications</Text>
-        <TouchableOpacity>
-          <Text style={styles.markAllRead}>Tout lire</Text>
+        <TouchableOpacity onPress={markAllRead} disabled={unreadCount === 0}>
+          <Text style={[styles.markAllRead, unreadCount === 0 && { opacity: 0.4 }]}>Tout lire</Text>
         </TouchableOpacity>
       </View>
 
       <FlatList
-        data={mockNotifications}
+        data={notifications}
         keyExtractor={(item) => item.id}
-        renderItem={({ item }) => <NotificationItem notification={item} />}
+        renderItem={({ item }) => <NotificationItem notification={item} onPress={() => handleNotifPress(item)} />}
         contentContainerStyle={styles.list}
         showsVerticalScrollIndicator={false}
         ItemSeparatorComponent={() => <View style={styles.separator} />}

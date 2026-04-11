@@ -1,6 +1,7 @@
 import { MaterialIcons } from '@expo/vector-icons';
 import { useState } from 'react';
 import {
+    Alert,
     FlatList,
     Image,
     StyleSheet,
@@ -115,7 +116,16 @@ export const MyBookingsScreen = ({ navigation }) => {
           data={filtered}
           keyExtractor={item => item.id}
           renderItem={({ item }) => (
-            <BookingCard booking={item} onPress={() => {}} />
+            <BookingCard booking={item} onPress={() => {
+              Alert.alert(
+                item.sitterName,
+                `Service : ${item.service}\nAnimal : ${item.pet}\nDates : ${item.dates}\nTotal : ${item.total}\nStatut : ${item.statusLabel}`,
+                [
+                  { text: 'Fermer', style: 'cancel' },
+                  ...(item.status === 'upcoming' ? [{ text: 'Annuler', style: 'destructive', onPress: () => {} }] : []),
+                ]
+              );
+            }} />
           )}
           contentContainerStyle={styles.list}
           showsVerticalScrollIndicator={false}

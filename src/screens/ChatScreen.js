@@ -1,15 +1,16 @@
 import { MaterialIcons } from '@expo/vector-icons';
 import { useState } from 'react';
 import {
-    FlatList,
-    Image,
-    KeyboardAvoidingView,
-    Platform,
-    StyleSheet,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    View,
+  Alert,
+  FlatList,
+  Image,
+  KeyboardAvoidingView,
+  Platform,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Colors from '../constants/colors';
@@ -69,7 +70,7 @@ export const ChatScreen = ({ route, navigation }) => {
             {conversation?.online ? 'En ligne' : 'Hors ligne'}
           </Text>
         </View>
-        <TouchableOpacity style={styles.headerAction}>
+        <TouchableOpacity style={styles.headerAction} onPress={() => Alert.alert('Options', 'Que souhaitez-vous faire ?', [{ text: 'Voir le profil', onPress: () => {} }, { text: 'Signaler', style: 'destructive' }, { text: 'Annuler', style: 'cancel' }])}>
           <MaterialIcons name="more-vert" size={24} color={Colors.onSurfaceVariant} />
         </TouchableOpacity>
       </View>
@@ -98,7 +99,7 @@ export const ChatScreen = ({ route, navigation }) => {
 
         {/* Input */}
         <View style={styles.inputContainer}>
-          <TouchableOpacity style={styles.attachButton}>
+          <TouchableOpacity style={styles.attachButton} onPress={() => Alert.alert('Pièce jointe', 'Choisissez un type', [{ text: 'Photo' }, { text: 'Document' }, { text: 'Annuler', style: 'cancel' }])}>
             <MaterialIcons name="add" size={24} color={Colors.onSurfaceVariant} />
           </TouchableOpacity>
           <TextInput

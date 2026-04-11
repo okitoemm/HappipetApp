@@ -12,7 +12,7 @@ import { ConversationItem, Header } from '../components';
 import Colors from '../constants/colors';
 import { mockConversations } from '../constants/mockData';
 
-const StoriesList = () => {
+const StoriesList = ({ onStoryPress }) => {
   const stories = mockConversations.slice(0, 4);
 
   return (
@@ -23,8 +23,8 @@ const StoriesList = () => {
         style={styles.storiesScroll}
       >
         {stories.map((story) => (
-          <TouchableOpacity key={story.id} style={styles.storyItem}>
-            <View style={styles.storyRing}>
+          <TouchableOpacity key={story.id} style={styles.storyItem} onPress={() => onStoryPress(story)}>
+            <View style={[styles.storyRing, !story.unread && styles.storyRingSeen]}>
               <Image
                 source={{ uri: story.image }}
                 style={styles.storyImage}
@@ -68,26 +68,38 @@ export const MessagesScreen = ({ navigation }) => {
     navigation.navigate('Chat', { conversation });
   };
 
+  const filteredConversations = mockConversations.filter((c) => {
+    if (activeFilter === 'Non lus') return c.unread;
+    if (activeFilter === 'Archivés') return c.context?.includes('archivée');
+    return true;
+  });
+
   return (
     <SafeAreaView style={styles.container}>
       <Header title="Messages" showNotification={false} />
       
       <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
         {/* Stories */}
-        <StoriesList />
+        <StoriesList onStoryPress={(story) => handleConversationPress(story)} />
 
         {/* Filter Tabs */}
         <FilterTabs activeFilter={activeFilter} onFilterChange={setActiveFilter} />
 
         {/* Conversations List */}
         <View style={styles.conversationsContainer}>
-          {mockConversations.map((conversation) => (
-            <ConversationItem
-              key={conversation.id}
-              conversation={conversation}
-              onPress={() => handleConversationPress(conversation)}
-            />
-          ))}
+          {filteredConversations.length > 0 ? (
+            filteredConversations.map((conversation) => (
+              <ConversationItem
+                key={conversation.id}
+                conversation={conversation}
+                onPress={() => handleConversationPress(conversation)}
+              />
+            ))
+          ) : (
+            <View style={styles.emptyState}>
+              <Text style={styles.emptyText}>Aucune conversation</Text>
+            </View>
+          )}
         </View>
 
         <View style={{ height: 40 }} />
@@ -123,6 +135,9 @@ const styles = StyleSheet.create({
     borderColor: Colors.primary,
     padding: 2,
     marginBottom: 8,
+  },
+  storyRingSeen: {
+    borderColor: Colors.outlineVariant,
   },
   storyImage: {
     width: '100%',
@@ -162,6 +177,14 @@ const styles = StyleSheet.create({
   conversationsContainer: {
     gap: 8,
     marginBottom: 12,
+  },
+  emptyState: {
+    alignItems: 'center',
+    paddingVertical: 40,
+  },
+  emptyText: {
+    fontSize: 14,
+    color: Colors.onSurfaceVariant,
   },
 });
 

@@ -1,6 +1,7 @@
 import { MaterialIcons } from '@expo/vector-icons';
 import { useState } from 'react';
 import {
+    Alert,
     ScrollView,
     StyleSheet,
     Switch,
@@ -60,9 +61,9 @@ export const SettingsScreen = ({ navigation }) => {
         {/* Account */}
         <Text style={styles.sectionLabel}>Compte</Text>
         <View style={styles.sectionCard}>
-          <SettingItem icon="person" label="Modifier le profil" color={Colors.primary} onPress={() => {}} />
-          <SettingItem icon="lock" label="Mot de passe" color={Colors.secondary} onPress={() => {}} />
-          <SettingItem icon="credit-card" label="Moyens de paiement" color={Colors.tertiary} onPress={() => {}} />
+          <SettingItem icon="person" label="Modifier le profil" color={Colors.primary} onPress={() => Alert.alert('Modifier le profil', 'Cette fonctionnalité sera disponible prochainement.')} />
+          <SettingItem icon="lock" label="Mot de passe" color={Colors.secondary} onPress={() => Alert.alert('Mot de passe', 'La modification du mot de passe sera disponible prochainement.')} />
+          <SettingItem icon="credit-card" label="Moyens de paiement" color={Colors.tertiary} onPress={() => Alert.alert('Moyens de paiement', 'La gestion des paiements sera disponible prochainement.')} />
         </View>
 
         {/* Notifications */}
@@ -76,15 +77,15 @@ export const SettingsScreen = ({ navigation }) => {
         <Text style={styles.sectionLabel}>Apparence</Text>
         <View style={styles.sectionCard}>
           <SettingToggle icon="dark-mode" label="Mode sombre" value={darkMode} onToggle={setDarkMode} color={Colors.onSurface} />
-          <SettingItem icon="language" label="Langue" value="Français" color={Colors.secondary} onPress={() => {}} />
+          <SettingItem icon="language" label="Langue" value="Français" color={Colors.secondary} onPress={() => Alert.alert('Langue', 'Seul le fran\u00e7ais est disponible pour le moment.')} />
         </View>
 
         {/* Support */}
         <Text style={styles.sectionLabel}>Support</Text>
         <View style={styles.sectionCard}>
-          <SettingItem icon="help-outline" label="Centre d'aide" color={Colors.secondary} onPress={() => {}} />
-          <SettingItem icon="description" label="Conditions d'utilisation" color={Colors.onSurfaceVariant} onPress={() => {}} />
-          <SettingItem icon="privacy-tip" label="Politique de confidentialité" color={Colors.onSurfaceVariant} onPress={() => {}} />
+          <SettingItem icon="help-outline" label="Centre d'aide" color={Colors.secondary} onPress={() => Alert.alert('Centre d\'aide', 'Contactez-nous \u00e0 support@happipet.fr')} />
+          <SettingItem icon="description" label="Conditions d'utilisation" color={Colors.onSurfaceVariant} onPress={() => Alert.alert('Conditions d\'utilisation', 'Les conditions d\'utilisation seront accessibles prochainement.')} />
+          <SettingItem icon="privacy-tip" label="Politique de confidentialité" color={Colors.onSurfaceVariant} onPress={() => Alert.alert('Confidentialité', 'La politique de confidentialité sera accessible prochainement.')} />
         </View>
 
         {/* Version */}

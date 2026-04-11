@@ -38,10 +38,17 @@ const SearchResultCard = ({ sitter, onPress }) => {
           <View style={styles.resultInfo}>
             <View style={styles.resultTitleRow}>
               <Text style={styles.resultTitle}>{sitter.name}</Text>
-              <View style={styles.verifiedBadge}>
-                <MaterialIcons name="verified" size={12} color={Colors.onSecondaryFixed} />
-                <Text style={styles.verifiedText}>Vérifié</Text>
-              </View>
+              {sitter.certified && (
+                <View style={styles.verifiedBadge}>
+                  <MaterialIcons name="verified" size={12} color={Colors.onSecondaryFixed} />
+                  <Text style={styles.verifiedText}>Vérifié</Text>
+                </View>
+              )}
+              {sitter.topSitter && (
+                <View style={styles.topBadge}>
+                  <Text style={styles.topBadgeText}>TOP</Text>
+                </View>
+              )}
             </View>
             <Text style={styles.resultLocation}>{sitter.location}</Text>
           </View>
@@ -56,14 +63,12 @@ const SearchResultCard = ({ sitter, onPress }) => {
         </Text>
 
         <View style={styles.resultServices}>
-          <View style={styles.serviceItem}>
-            <MaterialIcons name="pets" size={14} color={Colors.secondary} />
-            <Text style={styles.serviceText}>Accepte grands chiens</Text>
-          </View>
-          <View style={styles.serviceItem}>
-            <MaterialIcons name="home_health" size={14} color={Colors.secondary} />
-            <Text style={styles.serviceText}>Soins médicaux</Text>
-          </View>
+          {(sitter.tags || []).slice(0, 2).map((tag) => (
+            <View key={tag} style={styles.serviceItem}>
+              <MaterialIcons name="check-circle" size={14} color={Colors.secondary} />
+              <Text style={styles.serviceText}>{tag}</Text>
+            </View>
+          ))}
         </View>
       </View>
     </TouchableOpacity>
@@ -377,6 +382,18 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: Colors.onSecondaryFixed,
     textTransform: 'uppercase',
+  },
+  topBadge: {
+    backgroundColor: Colors.tertiary,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 6,
+  },
+  topBadgeText: {
+    fontSize: 8,
+    fontWeight: '800',
+    color: Colors.onTertiary,
+    letterSpacing: 0.5,
   },
   resultLocation: {
     fontSize: 12,

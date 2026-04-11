@@ -1,5 +1,7 @@
 import { MaterialIcons } from '@expo/vector-icons';
+import { useState } from 'react';
 import {
+    Alert,
     Image,
     ScrollView,
     StyleSheet,
@@ -54,6 +56,7 @@ const GalleryGrid = ({ images }) => {
 
 export const ProfileScreen = ({ route, navigation }) => {
   const { sitter } = route.params || {};
+  const [isFavorite, setIsFavorite] = useState(false);
   
   if (!sitter) {
     return (
@@ -81,10 +84,10 @@ export const ProfileScreen = ({ route, navigation }) => {
               style={styles.backButton}
               onPress={() => navigation.goBack()}
             >
-              <MaterialIcons name="arrow_back" size={20} color={Colors.onSurface} />
+              <MaterialIcons name="arrow-back" size={20} color={Colors.onSurface} />
             </TouchableOpacity>
-            <TouchableOpacity style={styles.favoriteButton}>
-              <MaterialIcons name="favorite" size={20} color={Colors.onSurface} />
+            <TouchableOpacity style={styles.favoriteButton} onPress={() => setIsFavorite(!isFavorite)}>
+              <MaterialIcons name={isFavorite ? 'favorite' : 'favorite-border'} size={20} color={isFavorite ? Colors.error : Colors.onSurface} />
             </TouchableOpacity>
           </View>
         </View>
@@ -94,10 +97,10 @@ export const ProfileScreen = ({ route, navigation }) => {
           {/* Header */}
           <View style={styles.profileHeader}>
             <View style={styles.profileInfo}>
-              <Text style={styles.profileName}>{sitter.name}, Amoureuse des animaux</Text>
+              <Text style={styles.profileName}>{sitter.name}</Text>
               <View style={styles.locationRow}>
-                <MaterialIcons name="location_on" size={18} color={Colors.secondary} />
-                <Text style={styles.locationText}>{sitter.location || 'Lyon, 69002'}</Text>
+                <MaterialIcons name="location-on" size={18} color={Colors.secondary} />
+                <Text style={styles.locationText}>{sitter.location}</Text>
               </View>
             </View>
             <View style={styles.statsContainer}>
@@ -106,7 +109,7 @@ export const ProfileScreen = ({ route, navigation }) => {
                 <Text style={styles.statLabel}>Avis</Text>
               </View>
               <View style={styles.statBox}>
-                <Text style={styles.statValue}>150+</Text>
+                <Text style={styles.statValue}>{sitter.reviews}+</Text>
                 <Text style={styles.statLabel}>Gardes</Text>
               </View>
             </View>
@@ -120,17 +123,17 @@ export const ProfileScreen = ({ route, navigation }) => {
             </View>
             <View style={styles.aboutBox}>
               <Text style={styles.aboutText}>
-                "J'ai grandi avec des chiens et je serais ravie de m'occuper du vôtre. Mon
-                appartement est situé juste à côté d'un grand parc, parfait pour les longues
-                promenades quotidiennes..."
+                "{sitter.description}"
               </Text>
-              <View style={styles.servicesChips}>
-                {['Promenade', 'Hébergement', 'Soins d\'urgence'].map((service) => (
-                  <View key={service} style={styles.serviceChip}>
-                    <Text style={styles.serviceChipText}>{service}</Text>
-                  </View>
-                ))}
-              </View>
+              {(sitter.services && sitter.services.length > 0) && (
+                <View style={styles.servicesChips}>
+                  {sitter.services.map((service) => (
+                    <View key={service} style={styles.serviceChip}>
+                      <Text style={styles.serviceChipText}>{service}</Text>
+                    </View>
+                  ))}
+                </View>
+              )}
             </View>
           </View>
 
@@ -141,11 +144,20 @@ export const ProfileScreen = ({ route, navigation }) => {
                 <View style={styles.sectionTitleBar} />
                 <Text style={styles.sectionTitle}>Galerie d'animaux gardés</Text>
               </View>
-              <TouchableOpacity>
-                <Text style={styles.seeAllLink}>Voir tout</Text>
-              </TouchableOpacity>
+              {sitter.gallery && sitter.gallery.length > 4 && (
+                <TouchableOpacity onPress={() => Alert.alert('Galerie', 'La galerie complète sera disponible prochainement.')}>
+                  <Text style={styles.seeAllLink}>Voir tout</Text>
+                </TouchableOpacity>
+              )}
             </View>
-            <GalleryGrid images={sitter.gallery || []} />
+            {sitter.gallery && sitter.gallery.length > 0 ? (
+              <GalleryGrid images={sitter.gallery} />
+            ) : (
+              <View style={styles.emptySection}>
+                <MaterialIcons name="photo-library" size={32} color={Colors.outlineVariant} />
+                <Text style={styles.emptySectionText}>Pas encore de photos</Text>
+              </View>
+            )}
           </View>
 
           {/* Reviews */}
@@ -155,9 +167,16 @@ export const ProfileScreen = ({ route, navigation }) => {
               <Text style={styles.sectionTitle}>Avis récents</Text>
             </View>
             <View style={styles.reviewsContainer}>
-              {sitter.reviews_data && sitter.reviews_data.map((review) => (
-                <ReviewItem key={review.id} review={review} />
-              ))}
+              {sitter.reviews_data && sitter.reviews_data.length > 0 ? (
+                sitter.reviews_data.map((review) => (
+                  <ReviewItem key={review.id} review={review} />
+                ))
+              ) : (
+                <View style={styles.emptySection}>
+                  <MaterialIcons name="rate-review" size={32} color={Colors.outlineVariant} />
+                  <Text style={styles.emptySectionText}>Pas encore d'avis</Text>
+                </View>
+              )}
             </View>
           </View>
 
@@ -459,6 +478,15 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '700',
     color: Colors.primary,
+  },
+  emptySection: {
+    alignItems: 'center',
+    paddingVertical: 24,
+    gap: 8,
+  },
+  emptySectionText: {
+    fontSize: 13,
+    color: Colors.onSurfaceVariant,
   },
 });
 

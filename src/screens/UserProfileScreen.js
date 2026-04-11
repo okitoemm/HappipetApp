@@ -1,5 +1,6 @@
 import { MaterialIcons } from '@expo/vector-icons';
 import {
+    Alert,
     Image,
     ScrollView,
     StyleSheet,
@@ -89,7 +90,7 @@ export const UserProfileScreen = ({ navigation }) => {
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
             <Text style={styles.sectionTitle}>Mes animaux</Text>
-            <TouchableOpacity>
+            <TouchableOpacity onPress={() => Alert.alert('Ajouter un animal', 'Cette fonctionnalité sera disponible prochainement.')}>
               <MaterialIcons name="add-circle-outline" size={24} color={Colors.primary} />
             </TouchableOpacity>
           </View>
@@ -97,7 +98,7 @@ export const UserProfileScreen = ({ navigation }) => {
             {mockUser.pets.map((pet) => (
               <PetCard key={pet.id} pet={pet} />
             ))}
-            <TouchableOpacity style={styles.addPetCard}>
+            <TouchableOpacity style={styles.addPetCard} onPress={() => Alert.alert('Ajouter un animal', 'Cette fonctionnalité sera disponible prochainement.')}>
               <MaterialIcons name="add" size={32} color={Colors.primary} />
               <Text style={styles.addPetText}>Ajouter</Text>
             </TouchableOpacity>
@@ -109,16 +110,16 @@ export const UserProfileScreen = ({ navigation }) => {
           <MenuItem icon="bookmark" label="Mes réservations" color={Colors.primary} onPress={() => navigation.navigate('MyBookings')} />
           <MenuItem icon="favorite" label="Favoris" color={Colors.error} onPress={() => navigation.navigate('Favorites')} />
           <MenuItem icon="notifications" label="Notifications" color={Colors.secondary} onPress={() => navigation.navigate('Notifications')} />
-          <MenuItem icon="star" label="Mes avis" color={Colors.tertiary} onPress={() => {}} />
+          <MenuItem icon="star" label="Mes avis" color={Colors.tertiary} onPress={() => Alert.alert('Mes avis', 'Cette fonctionnalité sera disponible prochainement.')} />
         </View>
 
         <View style={styles.menuSection}>
-          <MenuItem icon="credit-card" label="Paiements" color={Colors.primary} onPress={() => {}} />
-          <MenuItem icon="help-outline" label="Aide & Support" color={Colors.secondary} onPress={() => {}} />
-          <MenuItem icon="info-outline" label="À propos" color={Colors.onSurfaceVariant} onPress={() => {}} />
+          <MenuItem icon="credit-card" label="Paiements" color={Colors.primary} onPress={() => Alert.alert('Paiements', 'Cette fonctionnalité sera disponible prochainement.')} />
+          <MenuItem icon="help-outline" label="Aide & Support" color={Colors.secondary} onPress={() => Alert.alert('Aide & Support', 'Contactez-nous \u00e0 support@happipet.fr')} />
+          <MenuItem icon="info-outline" label="\u00c0 propos" color={Colors.onSurfaceVariant} onPress={() => Alert.alert('Happipet', 'Version 1.0.0\nApplication de garde d\'animaux entre particuliers.')} />
         </View>
 
-        <TouchableOpacity style={styles.logoutButton}>
+        <TouchableOpacity style={styles.logoutButton} onPress={() => Alert.alert('Déconnexion', 'Êtes-vous sûr de vouloir vous déconnecter ?', [{ text: 'Annuler', style: 'cancel' }, { text: 'Se déconnecter', style: 'destructive' }])}>
           <MaterialIcons name="logout" size={20} color={Colors.error} />
           <Text style={styles.logoutText}>Se déconnecter</Text>
         </TouchableOpacity>
