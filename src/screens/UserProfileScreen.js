@@ -10,6 +10,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Colors from '../constants/colors';
+import { useAuth } from '../contexts/AuthContext';
 
 const mockUser = {
   name: 'Emmanuel',
@@ -49,6 +50,7 @@ const PetCard = ({ pet }) => (
 );
 
 export const UserProfileScreen = ({ navigation }) => {
+  const { signOut } = useAuth();
   return (
     <SafeAreaView style={styles.container}>
       <ScrollView showsVerticalScrollIndicator={false}>
@@ -119,7 +121,7 @@ export const UserProfileScreen = ({ navigation }) => {
           <MenuItem icon="info-outline" label="\u00c0 propos" color={Colors.onSurfaceVariant} onPress={() => Alert.alert('Happipet', 'Version 1.0.0\nApplication de garde d\'animaux entre particuliers.')} />
         </View>
 
-        <TouchableOpacity style={styles.logoutButton} onPress={() => Alert.alert('Déconnexion', 'Êtes-vous sûr de vouloir vous déconnecter ?', [{ text: 'Annuler', style: 'cancel' }, { text: 'Se déconnecter', style: 'destructive' }])}>
+        <TouchableOpacity style={styles.logoutButton} onPress={() => Alert.alert('Déconnexion', 'Êtes-vous sûr de vouloir vous déconnecter ?', [{ text: 'Annuler', style: 'cancel' }, { text: 'Se déconnecter', style: 'destructive', onPress: () => signOut() }])}>
           <MaterialIcons name="logout" size={20} color={Colors.error} />
           <Text style={styles.logoutText}>Se déconnecter</Text>
         </TouchableOpacity>
