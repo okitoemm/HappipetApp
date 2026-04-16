@@ -1,29 +1,18 @@
 import { MaterialIcons } from '@expo/vector-icons';
+import { useCallback, useEffect, useState } from 'react';
 import {
-    Alert,
-    Image,
-    ScrollView,
-    StyleSheet,
-    Text,
-    TouchableOpacity,
-    View,
+  Alert,
+  Image,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Colors from '../constants/colors';
 import { useAuth } from '../contexts/AuthContext';
-
-const mockUser = {
-  name: 'Emmanuel',
-  email: 'emmanuel@email.com',
-  avatar: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=200&h=200&fit=crop',
-  phone: '+33 6 12 34 56 78',
-  memberSince: 'Janvier 2024',
-  pets: [
-    { id: '1', name: 'Rex', breed: 'Golden Retriever', age: '3 ans', image: 'https://images.unsplash.com/photo-1552053831-71594a27c62d?w=200&h=200&fit=crop' },
-    { id: '2', name: 'Luna', breed: 'Berger Australien', age: '1 an', image: 'https://images.unsplash.com/photo-1587300003388-59208cc962cb?w=200&h=200&fit=crop' },
-  ],
-  stats: { bookings: 12, reviews: 8, favorites: 5 },
-};
+import { getBookingsCount, getFavoritesCount, getMyPets } from '../services/api';
 
 const MenuItem = ({ icon, label, value, onPress, showChevron = true, color }) => (
   <TouchableOpacity style={styles.menuItem} onPress={onPress} activeOpacity={0.7}>
@@ -42,15 +31,45 @@ const MenuItem = ({ icon, label, value, onPress, showChevron = true, color }) =>
 
 const PetCard = ({ pet }) => (
   <View style={styles.petCard}>
-    <Image source={{ uri: pet.image }} style={styles.petImage} />
+    {pet.avatar_url ? (
+      <Image source={{ uri: pet.avatar_url }} style={styles.petImage} />
+    ) : (
+      <View style={[styles.petImage, { backgroundColor: Colors.surfaceContainerHigh, alignItems: 'center', justifyContent: 'center' }]}>
+        <MaterialIcons name="pets" size={32} color={Colors.onSurfaceVariant} />
+      </View>
+    )}
     <Text style={styles.petName}>{pet.name}</Text>
-    <Text style={styles.petBreed}>{pet.breed}</Text>
-    <Text style={styles.petAge}>{pet.age}</Text>
+    <Text style={styles.petBreed}>{pet.breed || pet.species}</Text>
+    {pet.birth_date ? <Text style={styles.petAge}>{pet.birth_date}</Text> : null}
   </View>
 );
 
 export const UserProfileScreen = ({ navigation }) => {
-  const { signOut } = useAuth();
+  const { user, profile, signOut } = useAuth();
+  const [pets, setPets] = useState([]);
+  const [stats, setStats] = useState({ bookings: 0, reviews: 0, favorites: 0 });
+
+  const fetchData = useCallback(async () => {
+    if (!user) return;
+    try {
+      const petsData = await getMyPets(user.id);
+      setPets(petsData ?? []);
+    } catch { /* silent */ }
+    try {
+      const [bookingsCount, favCount] = await Promise.all([
+        getBookingsCount(user.id),
+        getFavoritesCount(user.id),
+      ]);
+      setStats({ bookings: bookingsCount, reviews: 0, favorites: favCount });
+    } catch { /* silent */ }
+  }, [user]);
+
+  useEffect(() => { fetchData(); }, [fetchData]);
+
+  const memberSince = profile?.created_at
+    ? new Date(profile.created_at).toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' })
+    : '';
+
   return (
     <SafeAreaView style={styles.container}>
       <ScrollView showsVerticalScrollIndicator={false}>
@@ -64,25 +83,25 @@ export const UserProfileScreen = ({ navigation }) => {
 
         {/* Profile Card */}
         <View style={styles.profileCard}>
-          <Image source={{ uri: mockUser.avatar }} style={styles.avatar} />
-          <Text style={styles.userName}>{mockUser.name}</Text>
-          <Text style={styles.userEmail}>{mockUser.email}</Text>
-          <Text style={styles.memberSince}>Membre depuis {mockUser.memberSince}</Text>
+          <Image source={{ uri: profile?.avatar_url }} style={styles.avatar} />
+          <Text style={styles.userName}>{profile?.full_name || user?.email}</Text>
+          <Text style={styles.userEmail}>{user?.email}</Text>
+          {memberSince ? <Text style={styles.memberSince}>Membre depuis {memberSince}</Text> : null}
 
           {/* Stats */}
           <View style={styles.statsRow}>
             <View style={styles.statItem}>
-              <Text style={styles.statValue}>{mockUser.stats.bookings}</Text>
+              <Text style={styles.statValue}>{stats.bookings}</Text>
               <Text style={styles.statLabel}>Gardes</Text>
             </View>
             <View style={styles.statDivider} />
             <View style={styles.statItem}>
-              <Text style={styles.statValue}>{mockUser.stats.reviews}</Text>
+              <Text style={styles.statValue}>{stats.reviews}</Text>
               <Text style={styles.statLabel}>Avis</Text>
             </View>
             <View style={styles.statDivider} />
             <View style={styles.statItem}>
-              <Text style={styles.statValue}>{mockUser.stats.favorites}</Text>
+              <Text style={styles.statValue}>{stats.favorites}</Text>
               <Text style={styles.statLabel}>Favoris</Text>
             </View>
           </View>
@@ -97,7 +116,7 @@ export const UserProfileScreen = ({ navigation }) => {
             </TouchableOpacity>
           </View>
           <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.petsScroll}>
-            {mockUser.pets.map((pet) => (
+            {pets.map((pet) => (
               <PetCard key={pet.id} pet={pet} />
             ))}
             <TouchableOpacity style={styles.addPetCard} onPress={() => Alert.alert('Ajouter un animal', 'Cette fonctionnalité sera disponible prochainement.')}>

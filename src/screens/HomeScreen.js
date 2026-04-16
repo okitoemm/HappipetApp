@@ -1,29 +1,45 @@
 import { MaterialIcons } from '@expo/vector-icons';
-import { useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import {
-  Dimensions,
-  FlatList,
-  Image,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View
+    ActivityIndicator,
+    Dimensions,
+    FlatList,
+    Image,
+    StyleSheet,
+    Text,
+    TouchableOpacity,
+    View
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Header } from '../components';
 import Colors from '../constants/colors';
-import { mockDogSitters, mockFeedPosts } from '../constants/mockData';
+import { useAuth } from '../contexts/AuthContext';
+import { getFeedPosts, toggleLike } from '../services/api';
 
 const { width } = Dimensions.get('window');
 
 const FeedPost = ({ post, onLike, onProfilePress }) => {
   const [liked, setLiked] = useState(false);
-  const [likesCount, setLikesCount] = useState(post.likes);
+  const [likesCount, setLikesCount] = useState(post.likes_count ?? 0);
 
-  const handleLike = () => {
-    setLiked(!liked);
-    setLikesCount(prev => liked ? prev - 1 : prev + 1);
+  const handleLike = async () => {
+    const newLiked = !liked;
+    setLiked(newLiked);
+    setLikesCount(prev => newLiked ? prev + 1 : prev - 1);
+    try {
+      await onLike(post.id);
+    } catch {
+      // rollback on error
+      setLiked(!newLiked);
+      setLikesCount(prev => newLiked ? prev - 1 : prev + 1);
+    }
   };
+
+  const author = post.user || {};
+  const isVerified = false; // à relier au sitter_profile si needed
+  const timeAgo = post.created_at
+    ? new Date(post.created_at).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })
+    : '';
 
   return (
     <View style={styles.postCard}>
@@ -33,22 +49,12 @@ const FeedPost = ({ post, onLike, onProfilePress }) => {
         onPress={() => onProfilePress(post)}
         activeOpacity={0.7}
       >
-        <Image source={{ uri: post.author.avatar }} style={styles.authorAvatar} />
+        <Image source={{ uri: author.avatar_url }} style={styles.authorAvatar} />
         <View style={styles.authorInfo}>
           <View style={styles.authorNameRow}>
-            <Text style={styles.authorName}>{post.author.name}</Text>
-            {post.author.certified && (
-              <MaterialIcons name="verified" size={14} color={Colors.secondary} />
-            )}
-            {post.author.topSitter && (
-              <View style={styles.topBadge}>
-                <Text style={styles.topBadgeText}>TOP</Text>
-              </View>
-            )}
+            <Text style={styles.authorName}>{author.full_name}</Text>
           </View>
-          <Text style={styles.postTime}>
-            {post.author.role === 'sitter' ? '🐕 Gardien' : '👤 Propriétaire'} · {post.timeAgo}
-          </Text>
+          <Text style={styles.postTime}>{timeAgo}</Text>
         </View>
         <TouchableOpacity style={styles.moreButton}>
           <MaterialIcons name="more-horiz" size={20} color={Colors.onSurfaceVariant} />
@@ -56,7 +62,7 @@ const FeedPost = ({ post, onLike, onProfilePress }) => {
       </TouchableOpacity>
 
       {/* Post Image */}
-      <Image source={{ uri: post.image }} style={styles.postImage} resizeMode="cover" />
+      <Image source={{ uri: post.image_url }} style={styles.postImage} resizeMode="cover" />
 
       {/* Actions */}
       <View style={styles.postActions}>
@@ -70,63 +76,77 @@ const FeedPost = ({ post, onLike, onProfilePress }) => {
           </TouchableOpacity>
           <Text style={styles.likesCount}>{likesCount}</Text>
         </View>
-        {post.author.role === 'sitter' && post.sitterId && (
-          <TouchableOpacity
-            style={styles.bookButton}
-            onPress={() => onProfilePress(post)}
-          >
-            <Text style={styles.bookButtonText}>Voir le profil</Text>
-            <MaterialIcons name="arrow-forward" size={14} color={Colors.primary} />
-          </TouchableOpacity>
-        )}
       </View>
 
       {/* Caption */}
-      <View style={styles.captionContainer}>
-        <Text style={styles.captionText}>
-          <Text style={styles.captionAuthor}>{post.author.name} </Text>
-          {post.caption}
-        </Text>
-      </View>
-
-      {/* Animal Tag */}
-      <View style={styles.animalTag}>
-        <MaterialIcons name="pets" size={12} color={Colors.secondary} />
-        <Text style={styles.animalTagText}>
-          {post.animal.name} · {post.animal.breed}
-        </Text>
-      </View>
+      {post.caption ? (
+        <View style={styles.captionContainer}>
+          <Text style={styles.captionText}>
+            <Text style={styles.captionAuthor}>{author.full_name} </Text>
+            {post.caption}
+          </Text>
+        </View>
+      ) : null}
     </View>
   );
 };
 
 export const HomeScreen = ({ navigation }) => {
-  const handleProfilePress = (post) => {
-    if (post.sitterId) {
-      const sitter = mockDogSitters.find(s => s.id === post.sitterId);
-      if (sitter) {
-        navigation.navigate('Profile', { sitter });
-      }
+  const { user } = useAuth();
+  const [posts, setPosts] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+
+  const fetchPosts = useCallback(async () => {
+    try {
+      const data = await getFeedPosts();
+      setPosts(data);
+    } catch {
+      // silently fail — show empty state
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
     }
-  };
+  }, []);
+
+  useEffect(() => { fetchPosts(); }, [fetchPosts]);
+
+  const handleLike = useCallback(async (imageId) => {
+    if (user) await toggleLike(user.id, imageId);
+  }, [user]);
+
+  const handleProfilePress = useCallback(() => {}, []);
 
   return (
     <SafeAreaView style={styles.container}>
       <Header onNotificationPress={() => navigation.navigate('Notifications')} />
-      <FlatList
-        data={mockFeedPosts}
-        keyExtractor={(item) => item.id}
-        renderItem={({ item }) => (
-          <FeedPost
-            post={item}
-            onProfilePress={handleProfilePress}
-          />
-        )}
-        showsVerticalScrollIndicator={false}
-        contentContainerStyle={styles.feedList}
-        ItemSeparatorComponent={() => <View style={styles.separator} />}
-        ListFooterComponent={<View style={{ height: 40 }} />}
-      />
+      {loading ? (
+        <ActivityIndicator size="large" color={Colors.primary} style={{ flex: 1 }} />
+      ) : (
+        <FlatList
+          data={posts}
+          keyExtractor={(item) => item.id}
+          renderItem={({ item }) => (
+            <FeedPost
+              post={item}
+              onLike={handleLike}
+              onProfilePress={handleProfilePress}
+            />
+          )}
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={styles.feedList}
+          ItemSeparatorComponent={() => <View style={styles.separator} />}
+          ListFooterComponent={<View style={{ height: 40 }} />}
+          ListEmptyComponent={
+            <View style={styles.emptyContainer}>
+              <MaterialIcons name="photo-camera" size={48} color={Colors.onSurfaceVariant} />
+              <Text style={styles.emptyText}>Aucune publication pour l'instant.</Text>
+            </View>
+          }
+          refreshing={refreshing}
+          onRefresh={() => { setRefreshing(true); fetchPosts(); }}
+        />
+      )}
     </SafeAreaView>
   );
 };
@@ -244,17 +264,16 @@ const styles = StyleSheet.create({
   captionAuthor: {
     fontWeight: '700',
   },
-  animalTag: {
-    flexDirection: 'row',
+  emptyContainer: {
+    flex: 1,
     alignItems: 'center',
-    gap: 4,
-    paddingHorizontal: 14,
-    paddingBottom: 14,
+    justifyContent: 'center',
+    paddingTop: 80,
+    gap: 12,
   },
-  animalTagText: {
-    fontSize: 11,
-    fontWeight: '600',
-    color: Colors.secondary,
+  emptyText: {
+    fontSize: 14,
+    color: Colors.onSurfaceVariant,
   },
 });
 

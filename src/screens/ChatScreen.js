@@ -1,38 +1,33 @@
 import { MaterialIcons } from '@expo/vector-icons';
-import { useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import {
-  Alert,
-  FlatList,
-  Image,
-  KeyboardAvoidingView,
-  Platform,
-  StyleSheet,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View,
+    ActivityIndicator,
+    Alert,
+    FlatList,
+    Image,
+    KeyboardAvoidingView,
+    Platform,
+    StyleSheet,
+    Text,
+    TextInput,
+    TouchableOpacity,
+    View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Colors from '../constants/colors';
+import { useAuth } from '../contexts/AuthContext';
+import { getMessages, markMessagesAsRead, sendMessage, subscribeToMessages } from '../services/api';
 
-const mockMessages = [
-  { id: '1', text: 'Bonjour ! Je serais intéressé pour faire garder mon chien ce weekend.', sender: 'me', time: '14:00' },
-  { id: '2', text: 'Bonjour ! Bien sûr, je suis disponible samedi et dimanche. Quel type de chien avez-vous ?', sender: 'other', time: '14:05' },
-  { id: '3', text: 'C\'est un Golden Retriever de 3 ans, très sociable !', sender: 'me', time: '14:08' },
-  { id: '4', text: 'Parfait, j\'adore les Goldens ! J\'ai un grand jardin clos, il sera très bien ici 🐕', sender: 'other', time: '14:10' },
-  { id: '5', text: 'Super ! Quels sont vos tarifs pour 2 jours ?', sender: 'me', time: '14:12' },
-  { id: '6', text: 'Je propose 25€/jour, soit 50€ pour le weekend. Ça inclut les promenades et les repas.', sender: 'other', time: '14:15' },
-  { id: '7', text: 'C\'est parfait. Je peux déposer Rex samedi matin vers 9h ?', sender: 'me', time: '14:18' },
-  { id: '8', text: 'Oui sans problème ! Je vous envoie mon adresse. À samedi alors 😊', sender: 'other', time: '14:20' },
-];
-
-const MessageBubble = ({ message }) => {
-  const isMe = message.sender === 'me';
+const MessageBubble = ({ message, currentUserId }) => {
+  const isMe = message.sender_id === currentUserId;
+  const time = message.created_at
+    ? new Date(message.created_at).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })
+    : '';
   return (
     <View style={[styles.messageBubbleContainer, isMe && styles.messageBubbleContainerMe]}>
       <View style={[styles.messageBubble, isMe ? styles.messageBubbleMe : styles.messageBubbleOther]}>
         <Text style={[styles.messageText, isMe && styles.messageTextMe]}>{message.text}</Text>
-        <Text style={[styles.messageTime, isMe && styles.messageTimeMe]}>{message.time}</Text>
+        <Text style={[styles.messageTime, isMe && styles.messageTimeMe]}>{time}</Text>
       </View>
     </View>
   );
@@ -40,19 +35,42 @@ const MessageBubble = ({ message }) => {
 
 export const ChatScreen = ({ route, navigation }) => {
   const { conversation } = route.params || {};
+  const { user } = useAuth();
   const [message, setMessage] = useState('');
-  const [messages, setMessages] = useState(mockMessages);
+  const [messages, setMessages] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const flatListRef = useRef(null);
 
-  const handleSend = () => {
-    if (message.trim()) {
-      const newMsg = {
-        id: String(messages.length + 1),
-        text: message.trim(),
-        sender: 'me',
-        time: new Date().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }),
-      };
-      setMessages([...messages, newMsg]);
-      setMessage('');
+  const fetchMessages = useCallback(async () => {
+    if (!conversation?.id) return;
+    try {
+      const data = await getMessages(conversation.id);
+      setMessages(data);
+      if (user) await markMessagesAsRead(conversation.id, user.id);
+    } catch {
+      // silent fail
+    } finally {
+      setLoading(false);
+    }
+  }, [conversation?.id, user]);
+
+  useEffect(() => {
+    fetchMessages();
+    const channel = subscribeToMessages(conversation?.id, (newMsg) => {
+      setMessages(prev => [...prev, newMsg]);
+    });
+    return () => { channel.unsubscribe(); };
+  }, [fetchMessages, conversation?.id]);
+
+  const handleSend = async () => {
+    if (!message.trim() || !user || !conversation?.id) return;
+    const text = message.trim();
+    setMessage('');
+    try {
+      const newMsg = await sendMessage({ conversationId: conversation.id, senderId: user.id, text });
+      setMessages(prev => [...prev, newMsg]);
+    } catch {
+      Alert.alert('Erreur', "Le message n'a pas pu être envoyé.");
     }
   };
 
@@ -66,22 +84,11 @@ export const ChatScreen = ({ route, navigation }) => {
         <Image source={{ uri: conversation?.image }} style={styles.avatar} />
         <View style={styles.headerInfo}>
           <Text style={styles.headerName}>{conversation?.name || 'Chat'}</Text>
-          <Text style={styles.headerStatus}>
-            {conversation?.online ? 'En ligne' : 'Hors ligne'}
-          </Text>
         </View>
-        <TouchableOpacity style={styles.headerAction} onPress={() => Alert.alert('Options', 'Que souhaitez-vous faire ?', [{ text: 'Voir le profil', onPress: () => {} }, { text: 'Signaler', style: 'destructive' }, { text: 'Annuler', style: 'cancel' }])}>
+        <TouchableOpacity style={styles.headerAction} onPress={() => Alert.alert('Options', 'Que souhaitez-vous faire ?', [{ text: 'Signaler', style: 'destructive' }, { text: 'Annuler', style: 'cancel' }])}>
           <MaterialIcons name="more-vert" size={24} color={Colors.onSurfaceVariant} />
         </TouchableOpacity>
       </View>
-
-      {/* Context Banner */}
-      {conversation?.context && (
-        <View style={styles.contextBanner}>
-          <MaterialIcons name="info-outline" size={16} color={Colors.secondary} />
-          <Text style={styles.contextText}>{conversation.context}</Text>
-        </View>
-      )}
 
       {/* Messages */}
       <KeyboardAvoidingView
@@ -89,19 +96,22 @@ export const ChatScreen = ({ route, navigation }) => {
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         keyboardVerticalOffset={90}
       >
-        <FlatList
-          data={messages}
-          keyExtractor={(item) => item.id}
-          renderItem={({ item }) => <MessageBubble message={item} />}
-          contentContainerStyle={styles.messagesList}
-          showsVerticalScrollIndicator={false}
-        />
+        {loading ? (
+          <ActivityIndicator size="large" color={Colors.primary} style={{ flex: 1 }} />
+        ) : (
+          <FlatList
+            ref={flatListRef}
+            data={messages}
+            keyExtractor={(item) => item.id}
+            renderItem={({ item }) => <MessageBubble message={item} currentUserId={user?.id} />}
+            contentContainerStyle={styles.messagesList}
+            showsVerticalScrollIndicator={false}
+            onContentSizeChange={() => flatListRef.current?.scrollToEnd({ animated: true })}
+          />
+        )}
 
         {/* Input */}
         <View style={styles.inputContainer}>
-          <TouchableOpacity style={styles.attachButton} onPress={() => Alert.alert('Pièce jointe', 'Choisissez un type', [{ text: 'Photo' }, { text: 'Document' }, { text: 'Annuler', style: 'cancel' }])}>
-            <MaterialIcons name="add" size={24} color={Colors.onSurfaceVariant} />
-          </TouchableOpacity>
           <TextInput
             style={styles.textInput}
             placeholder="Écrire un message..."

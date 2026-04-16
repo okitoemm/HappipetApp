@@ -1,8 +1,9 @@
 import { MaterialIcons } from '@expo/vector-icons';
-import { useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import {
+    ActivityIndicator,
+    FlatList,
     Image,
-    ScrollView,
     StyleSheet,
     Text,
     TextInput,
@@ -12,7 +13,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { FilterChip } from '../components';
 import Colors from '../constants/colors';
-import { mockDogSitters } from '../constants/mockData';
+import { getSitters } from '../services/api';
 
 const SearchResultCard = ({ sitter, onPress }) => {
   return (
@@ -79,107 +80,158 @@ export const SearchScreen = ({ navigation }) => {
   const [selectedFilter, setSelectedFilter] = useState('Prix');
   const [location, setLocation] = useState('');
   const [selectedAnimal, setSelectedAnimal] = useState('Chien');
-  const [searchActive, setSearchActive] = useState(false);
+  const [sitters, setSitters] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
   const filters = ['Prix', "Type d'hébergement", 'Disponibilité', 'Rayon +5km'];
   const animals = ['Chien', 'Chat', 'Autre'];
+
+  const fetchSitters = useCallback(async (city = '') => {
+    setLoading(true);
+    setError(null);
+    try {
+      const data = await getSitters({ city: city || undefined });
+      setSitters(data);
+    } catch (e) {
+      setError('Impossible de charger les gardiens.');
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchSitters();
+  }, [fetchSitters]);
+
+  const handleSearch = () => fetchSitters(location);
 
   const handleSitterPress = (sitter) => {
     navigation.navigate('ProfileSearch', { sitter });
   };
 
+  const ListHeader = (
+    <View>
+      {/* Search Section */}
+      <View style={styles.searchSection}>
+        <Text style={styles.searchTitle}>Où voulez-vous faire{"\n"}garder votre compagnon ?</Text>
+        <Text style={styles.searchSubtitle}>Trouvez le gardien idéal près de chez vous.</Text>
+        <View style={styles.searchCard}>
+          <View style={styles.searchInputRow}>
+            <MaterialIcons name="location-on" size={20} color={Colors.primary} />
+            <TextInput
+              style={styles.searchInput}
+              placeholder="Ville ou code postal"
+              placeholderTextColor={Colors.outlineVariant}
+              value={location}
+              onChangeText={setLocation}
+              returnKeyType="search"
+              onSubmitEditing={handleSearch}
+            />
+          </View>
+          <View style={styles.dateInput}>
+            <MaterialIcons name="event" size={20} color={Colors.primary} />
+            <View style={styles.dateInputText}>
+              <Text style={styles.dateLabel}>Quand ?</Text>
+              <Text style={styles.dateValue}>Ajouter des dates</Text>
+            </View>
+          </View>
+          <TouchableOpacity style={styles.searchCta} onPress={handleSearch}>
+            <MaterialIcons name="search" size={20} color={Colors.onPrimary} />
+            <Text style={styles.searchCtaText}>Rechercher</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+
+      {/* Animal Filters */}
+      <View style={styles.animalFilters}>
+        {animals.map((animal) => (
+          <FilterChip
+            key={animal}
+            label={animal}
+            selected={selectedAnimal === animal}
+            onPress={() => setSelectedAnimal(animal)}
+            icon={
+              <MaterialIcons
+                name="pets"
+                size={16}
+                color={selectedAnimal === animal ? Colors.onPrimaryContainer : Colors.onSurface}
+              />
+            }
+          />
+        ))}
+      </View>
+
+      {/* Filters */}
+      <FlatList
+        data={filters}
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        keyExtractor={(item) => item}
+        style={styles.filtersContainer}
+        renderItem={({ item }) => (
+          <FilterChip
+            label={item}
+            selected={selectedFilter === item}
+            onPress={() => setSelectedFilter(item)}
+          />
+        )}
+      />
+
+      {/* Results Header */}
+      <View style={styles.resultsHeader}>
+        <Text style={styles.resultsCount}>
+          {loading ? 'Chargement...' : `${sitters.length} gardien${sitters.length !== 1 ? 's' : ''}${location ? ` à ${location}` : ''}`}
+        </Text>
+        <Text style={styles.resultsSubtitle}>Disponibles pour vos dates sélectionnées</Text>
+      </View>
+    </View>
+  );
+
   return (
     <SafeAreaView style={styles.container}>
-      <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
-        {/* Search Section */}
-        <View style={styles.searchSection}>
-          <Text style={styles.searchTitle}>Où voulez-vous faire{'\n'}garder votre compagnon ?</Text>
-          <Text style={styles.searchSubtitle}>Trouvez le gardien idéal près de chez vous.</Text>
-
-          <View style={styles.searchCard}>
-            <View style={styles.searchInputRow}>
-              <MaterialIcons name="location-on" size={20} color={Colors.primary} />
-              <TextInput
-                style={styles.searchInput}
-                placeholder="Ville ou code postal"
-                placeholderTextColor={Colors.outlineVariant}
-                value={location}
-                onChangeText={setLocation}
-              />
+      <FlatList
+        data={loading || error || sitters.length === 0 ? [] : sitters}
+        keyExtractor={(item) => item.id}
+        contentContainerStyle={{ paddingBottom: 40 }}
+        showsVerticalScrollIndicator={false}
+        ListHeaderComponent={ListHeader}
+        renderItem={({ item: sitter }) => (
+          <SearchResultCard
+            sitter={{
+              id: sitter.id,
+              name: sitter.user?.full_name,
+              location: sitter.location_text,
+              rating: sitter.rating,
+              reviews: sitter.review_count,
+              price: sitter.price_per_day,
+              certified: sitter.certified,
+              topSitter: sitter.top_sitter,
+              image: sitter.user?.avatar_url,
+              tags: sitter.tags,
+              description: sitter.description,
+            }}
+            onPress={() => handleSitterPress(sitter)}
+          />
+        )}
+        ListFooterComponent={
+          loading ? (
+            <ActivityIndicator size="large" color={Colors.primary} style={{ marginTop: 40 }} />
+          ) : error ? (
+            <View style={styles.errorContainer}>
+              <MaterialIcons name="error-outline" size={40} color={Colors.error} />
+              <Text style={styles.errorText}>{error}</Text>
+              <TouchableOpacity onPress={() => fetchSitters(location)} style={styles.retryButton}>
+                <Text style={styles.retryText}>Réessayer</Text>
+              </TouchableOpacity>
             </View>
-            <View style={styles.dateInput}>
-              <MaterialIcons name="event" size={20} color={Colors.primary} />
-              <View style={styles.dateInputText}>
-                <Text style={styles.dateLabel}>Quand ?</Text>
-                <Text style={styles.dateValue}>Ajouter des dates</Text>
-              </View>
+          ) : sitters.length === 0 ? (
+            <View style={styles.errorContainer}>
+              <MaterialIcons name="search-off" size={40} color={Colors.onSurfaceVariant} />
+              <Text style={styles.errorText}>Aucun gardien trouvé{location ? ` à ${location}` : ''}.</Text>
             </View>
-            <TouchableOpacity style={styles.searchCta} onPress={() => setSearchActive(true)}>
-              <MaterialIcons name="search" size={20} color={Colors.onPrimary} />
-              <Text style={styles.searchCtaText}>Rechercher</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-
-        {/* Animal Filters */}
-        <View style={styles.animalFilters}>
-          {animals.map((animal) => (
-            <FilterChip
-              key={animal}
-              label={animal}
-              selected={selectedAnimal === animal}
-              onPress={() => setSelectedAnimal(animal)}
-              icon={
-                <MaterialIcons
-                  name="pets"
-                  size={16}
-                  color={
-                    selectedAnimal === animal
-                      ? Colors.onPrimaryContainer
-                      : Colors.onSurface
-                  }
-                />
-              }
-            />
-          ))}
-        </View>
-
-        {/* Filters */}
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          style={styles.filtersContainer}
-        >
-          {filters.map((filter) => (
-            <FilterChip
-              key={filter}
-              label={filter}
-              selected={selectedFilter === filter}
-              onPress={() => setSelectedFilter(filter)}
-            />
-          ))}
-        </ScrollView>
-
-        {/* Results Title */}
-        <View style={styles.resultsHeader}>
-          <Text style={styles.resultsCount}>{mockDogSitters.length} dogsitters{location ? ` à ${location}` : ' à Paris'}</Text>
-          <Text style={styles.resultsSubtitle}>
-            Disponibles pour vos dates sélectionnées
-          </Text>
-        </View>
-
-        {/* Results Grid */}
-        <View style={styles.resultsContainer}>
-          {mockDogSitters.map((sitter) => (
-            <SearchResultCard
-              key={sitter.id}
-              sitter={sitter}
-              onPress={() => handleSitterPress(sitter)}
-            />
-          ))}
-        </View>
-
-        <View style={{ height: 40 }} />
-      </ScrollView>
+          ) : null
+        }
+      />
     </SafeAreaView>
   );
 };
@@ -432,6 +484,28 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: Colors.secondary,
     textTransform: 'uppercase',
+  },
+  errorContainer: {
+    alignItems: 'center',
+    paddingVertical: 48,
+    paddingHorizontal: 32,
+    gap: 12,
+  },
+  errorText: {
+    fontSize: 14,
+    color: Colors.onSurfaceVariant,
+    textAlign: 'center',
+  },
+  retryButton: {
+    backgroundColor: Colors.primaryContainer,
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    borderRadius: 20,
+  },
+  retryText: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: Colors.primary,
   },
 });
 

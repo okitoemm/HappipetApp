@@ -1,23 +1,28 @@
 import { MaterialIcons } from '@expo/vector-icons';
-import { useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import {
-    FlatList,
-    StyleSheet,
-    Text,
-    TouchableOpacity,
-    View,
+  ActivityIndicator,
+  FlatList,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Colors from '../constants/colors';
+import { useAuth } from '../contexts/AuthContext';
+import { getMyNotifications, markAllNotificationsRead, markNotificationRead } from '../services/api';
 
-const initialNotifications = [
-  { id: '1', type: 'booking', title: 'Réservation confirmée', body: 'Camille R. a accepté votre demande de garde pour Rex.', time: 'Il y a 2h', read: false, icon: 'check-circle', color: '#4CAF50' },
-  { id: '2', type: 'message', title: 'Nouveau message', body: 'Marc vous a envoyé un message.', time: 'Il y a 5h', read: false, icon: 'chat', color: Colors.secondary },
-  { id: '3', type: 'reminder', title: 'Rappel garde demain', body: 'N\'oubliez pas de déposer Rex chez Camille demain à 9h.', time: 'Hier', read: true, icon: 'notifications', color: Colors.primary },
-  { id: '4', type: 'review', title: 'Laissez un avis !', body: 'Comment s\'est passée la garde de Luna chez Thomas ?', time: 'Il y a 3j', read: true, icon: 'star', color: Colors.tertiary },
-  { id: '5', type: 'promo', title: 'Offre spéciale', body: 'Profitez de -20% sur votre prochaine garde ce weekend !', time: 'Il y a 5j', read: true, icon: 'local-offer', color: '#FF5722' },
-  { id: '6', type: 'booking', title: 'Garde terminée', body: 'La garde de Rex chez Marie L. est terminée. Rex va bien !', time: 'Il y a 1 sem', read: true, icon: 'pets', color: Colors.primary },
-];
+const NOTIF_ICONS = { booking: 'event', message: 'chat', review: 'star', promo: 'local-offer', default: 'notifications' };
+const NOTIF_COLORS = { booking: Colors.primary, message: Colors.secondary, review: Colors.tertiary, promo: '#FF5722', default: Colors.onSurfaceVariant };
+
+const normalizeNotif = (n) => ({
+  ...n,
+  read: n.read ?? false,
+  icon: NOTIF_ICONS[n.type] || NOTIF_ICONS.default,
+  color: NOTIF_COLORS[n.type] || NOTIF_COLORS.default,
+  time: n.created_at ? new Date(n.created_at).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' }) : '',
+});
 
 const NotificationItem = ({ notification, onPress }) => (
   <TouchableOpacity
@@ -40,17 +45,40 @@ const NotificationItem = ({ notification, onPress }) => (
 );
 
 export const NotificationsScreen = ({ navigation }) => {
-  const [notifications, setNotifications] = useState(initialNotifications);
+  const { user } = useAuth();
+  const [notifications, setNotifications] = useState([]);
+  const [loading, setLoading] = useState(true);
 
-  const markAllRead = () => {
-    setNotifications(prev => prev.map(n => ({ ...n, read: true })));
+  const fetchNotifications = useCallback(async () => {
+    if (!user) return;
+    try {
+      const data = await getMyNotifications(user.id);
+      setNotifications(data.map(normalizeNotif));
+    } catch {
+      // silent
+    } finally {
+      setLoading(false);
+    }
+  }, [user]);
+
+  useEffect(() => { fetchNotifications(); }, [fetchNotifications]);
+
+  const markAllRead = async () => {
+    try {
+      await markAllNotificationsRead(user.id);
+      setNotifications(prev => prev.map(n => ({ ...n, read: true })));
+    } catch { /* silent */ }
   };
 
-  const handleNotifPress = (notif) => {
-    setNotifications(prev => prev.map(n => n.id === notif.id ? { ...n, read: true } : n));
+  const handleNotifPress = async (notif) => {
+    if (!notif.read) {
+      try {
+        await markNotificationRead(notif.id);
+        setNotifications(prev => prev.map(n => n.id === notif.id ? { ...n, read: true } : n));
+      } catch { /* silent */ }
+    }
     if (notif.type === 'message') {
-      navigation.navigate('Home');
-      setTimeout(() => navigation.navigate('Messages'), 100);
+      navigation.navigate('Messages');
     } else if (notif.type === 'booking') {
       navigation.navigate('MyBookings');
     }
@@ -77,6 +105,14 @@ export const NotificationsScreen = ({ navigation }) => {
         contentContainerStyle={styles.list}
         showsVerticalScrollIndicator={false}
         ItemSeparatorComponent={() => <View style={styles.separator} />}
+        ListEmptyComponent={loading ? (
+          <ActivityIndicator size="large" color={Colors.primary} style={{ marginTop: 60 }} />
+        ) : (
+          <View style={{ alignItems: 'center', marginTop: 60 }}>
+            <MaterialIcons name="notifications-none" size={48} color={Colors.outlineVariant} />
+            <Text style={{ color: Colors.onSurfaceVariant, marginTop: 12 }}>Aucune notification</Text>
+          </View>
+        )}
       />
     </SafeAreaView>
   );

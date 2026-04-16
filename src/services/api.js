@@ -152,6 +152,15 @@ export async function getMyBookings(userId) {
   return data;
 }
 
+export async function getBookingsCount(userId) {
+  const { count, error } = await supabase
+    .from('bookings')
+    .select('id', { count: 'exact', head: true })
+    .eq('owner_id', userId);
+  if (error) throw error;
+  return count ?? 0;
+}
+
 export async function getSitterBookings(sitterProfileId) {
   const { data, error } = await supabase
     .from('bookings')
@@ -308,6 +317,15 @@ export async function getMyFavorites(userId) {
     .order('created_at', { ascending: false });
   if (error) throw error;
   return data;
+}
+
+export async function getFavoritesCount(userId) {
+  const { count, error } = await supabase
+    .from('favorites')
+    .select('id', { count: 'exact', head: true })
+    .eq('user_id', userId);
+  if (error) throw error;
+  return count ?? 0;
 }
 
 export async function toggleFavorite(userId, sitterId) {

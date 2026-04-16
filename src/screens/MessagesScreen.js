@@ -1,5 +1,6 @@
-import { useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import {
+    ActivityIndicator,
     Image,
     ScrollView,
     StyleSheet,
@@ -10,36 +11,48 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { ConversationItem, Header } from '../components';
 import Colors from '../constants/colors';
-import { mockConversations } from '../constants/mockData';
+import { useAuth } from '../contexts/AuthContext';
+import { getMyConversations } from '../services/api';
 
-const StoriesList = ({ onStoryPress }) => {
-  const stories = mockConversations.slice(0, 4);
-
-  return (
-    <View style={styles.storiesContainer}>
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        style={styles.storiesScroll}
-      >
-        {stories.map((story) => (
-          <TouchableOpacity key={story.id} style={styles.storyItem} onPress={() => onStoryPress(story)}>
-            <View style={[styles.storyRing, !story.unread && styles.storyRingSeen]}>
-              <Image
-                source={{ uri: story.image }}
-                style={styles.storyImage}
-                resizeMode="cover"
-              />
-            </View>
-            <Text style={styles.storyName} numberOfLines={1}>
-              {story.name}
-            </Text>
-          </TouchableOpacity>
-        ))}
-      </ScrollView>
-    </View>
-  );
+// Helper: get the other participant relative to current user
+const getOther = (conv, userId) => {
+  if (conv.participant_1 === userId) return conv.participant_2_profile;
+  return conv.participant_1_profile;
 };
+
+// Normalize a Supabase conversation to the shape ConversationItem expects
+const normalizeConv = (conv, userId) => {
+  const other = getOther(conv, userId) || {};
+  const timestamp = conv.last_message_at
+    ? new Date(conv.last_message_at).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })
+    : '';
+  return {
+    ...conv,
+    image: other.avatar_url,
+    name: other.full_name || 'Inconnu',
+    context: '',
+    timestamp,
+    lastMessage: conv.last_message || '',
+    unread: false,
+    unreadCount: 0,
+    otherUserId: other.id,
+  };
+};
+
+const StoriesList = ({ stories, onStoryPress }) => (
+  <View style={styles.storiesContainer}>
+    <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.storiesScroll}>
+      {stories.map((story) => (
+        <TouchableOpacity key={story.id} style={styles.storyItem} onPress={() => onStoryPress(story)}>
+          <View style={[styles.storyRing, !story.unread && styles.storyRingSeen]}>
+            <Image source={{ uri: story.image }} style={styles.storyImage} resizeMode="cover" />
+          </View>
+          <Text style={styles.storyName} numberOfLines={1}>{story.name}</Text>
+        </TouchableOpacity>
+      ))}
+    </ScrollView>
+  </View>
+);
 
 const FilterTabs = ({ activeFilter, onFilterChange }) => {
   const filters = ['Tout', 'Non lus', 'Archivés'];
@@ -62,48 +75,72 @@ const FilterTabs = ({ activeFilter, onFilterChange }) => {
 };
 
 export const MessagesScreen = ({ navigation }) => {
+  const { user } = useAuth();
   const [activeFilter, setActiveFilter] = useState('Tout');
+  const [conversations, setConversations] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  const fetchConversations = useCallback(async () => {
+    if (!user) return;
+    try {
+      const data = await getMyConversations(user.id);
+      setConversations(data.map(c => normalizeConv(c, user.id)));
+    } catch {
+      // silent fail — show empty state
+    } finally {
+      setLoading(false);
+    }
+  }, [user]);
+
+  useEffect(() => { fetchConversations(); }, [fetchConversations]);
 
   const handleConversationPress = (conversation) => {
     navigation.navigate('Chat', { conversation });
   };
 
-  const filteredConversations = mockConversations.filter((c) => {
+  const filteredConversations = conversations.filter((c) => {
     if (activeFilter === 'Non lus') return c.unread;
-    if (activeFilter === 'Archivés') return c.context?.includes('archivée');
     return true;
   });
 
   return (
     <SafeAreaView style={styles.container}>
       <Header title="Messages" showNotification={false} />
-      
-      <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
-        {/* Stories */}
-        <StoriesList onStoryPress={(story) => handleConversationPress(story)} />
-
-        {/* Filter Tabs */}
-        <FilterTabs activeFilter={activeFilter} onFilterChange={setActiveFilter} />
-
-        {/* Conversations List */}
-        <View style={styles.conversationsContainer}>
-          {filteredConversations.length > 0 ? (
-            filteredConversations.map((conversation) => (
-              <ConversationItem
-                key={conversation.id}
-                conversation={conversation}
-                onPress={() => handleConversationPress(conversation)}
-              />
-            ))
-          ) : (
-            <View style={styles.emptyState}>
-              <Text style={styles.emptyText}>Aucune conversation</Text>
-            </View>
+      {loading ? (
+        <ActivityIndicator size="large" color={Colors.primary} style={{ flex: 1 }} />
+      ) : (
+        <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
+          {/* Stories */}
+          {conversations.length > 0 && (
+            <StoriesList
+              stories={conversations.slice(0, 5)}
+              onStoryPress={handleConversationPress}
+            />
           )}
-        </View>
 
-        <View style={{ height: 40 }} />
-      </ScrollView>
+          {/* Filter Tabs */}
+          <FilterTabs activeFilter={activeFilter} onFilterChange={setActiveFilter} />
+
+          {/* Conversations List */}
+          <View style={styles.conversationsContainer}>
+            {filteredConversations.length > 0 ? (
+              filteredConversations.map((conversation) => (
+                <ConversationItem
+                  key={conversation.id}
+                  conversation={conversation}
+                  onPress={() => handleConversationPress(conversation)}
+                />
+              ))
+            ) : (
+              <View style={styles.emptyState}>
+                <Text style={styles.emptyText}>Aucune conversation</Text>
+              </View>
+            )}
+          </View>
+
+          <View style={{ height: 40 }} />
+        </ScrollView>
+      )}
     </SafeAreaView>
   );
 };

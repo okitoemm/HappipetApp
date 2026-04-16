@@ -1,50 +1,72 @@
 import { MaterialIcons } from '@expo/vector-icons';
-import { useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import {
-    FlatList,
-    Image,
-    StyleSheet,
-    Text,
-    TouchableOpacity,
-    View,
+  ActivityIndicator,
+  FlatList,
+  Image,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Colors from '../constants/colors';
-import { mockDogSitters } from '../constants/mockData';
+import { useAuth } from '../contexts/AuthContext';
+import { getMyFavorites, toggleFavorite } from '../services/api';
 
-const FavoriteCard = ({ sitter, onRemove, onPress }) => (
+const FavoriteCard = ({ fav, onRemove, onPress }) => {
+  const sitter = fav.sitter || {};
+  const user = sitter.user || {};
+  return (
   <TouchableOpacity style={styles.card} onPress={onPress} activeOpacity={0.8}>
-    <Image source={{ uri: sitter.image }} style={styles.cardImage} />
+    <Image source={{ uri: user.avatar_url }} style={styles.cardImage} />
     <View style={styles.cardContent}>
       <View style={styles.cardHeader}>
-        <Text style={styles.cardName}>{sitter.name}</Text>
-        {sitter.certified && (
-          <MaterialIcons name="verified" size={16} color={Colors.secondary} />
-        )}
+        <Text style={styles.cardName}>{user.full_name || 'Gardien'}</Text>
       </View>
       <View style={styles.cardLocation}>
         <MaterialIcons name="location-on" size={14} color={Colors.onSurfaceVariant} />
-        <Text style={styles.cardLocationText}>{sitter.location}</Text>
+        <Text style={styles.cardLocationText}>{sitter.location_text || user.city || ''}</Text>
       </View>
       <View style={styles.cardFooter}>
         <View style={styles.cardRating}>
           <MaterialIcons name="star" size={14} color={Colors.tertiary} />
-          <Text style={styles.cardRatingText}>{sitter.rating} ({sitter.reviews})</Text>
+          <Text style={styles.cardRatingText}>{sitter.rating || '-'} ({sitter.review_count || 0})</Text>
         </View>
-        <Text style={styles.cardPrice}>{sitter.price}€/jour</Text>
+        <Text style={styles.cardPrice}>{sitter.price_per_day != null ? `${sitter.price_per_day}€/jour` : ''}</Text>
       </View>
     </View>
     <TouchableOpacity style={styles.removeButton} onPress={onRemove}>
       <MaterialIcons name="favorite" size={22} color={Colors.error} />
     </TouchableOpacity>
   </TouchableOpacity>
-);
+  );
+};
 
 export const FavoritesScreen = ({ navigation }) => {
-  const [favorites, setFavorites] = useState(mockDogSitters.slice(0, 3));
+  const { user } = useAuth();
+  const [favorites, setFavorites] = useState([]);
+  const [loading, setLoading] = useState(true);
 
-  const handleRemove = (id) => {
-    setFavorites(prev => prev.filter(f => f.id !== id));
+  const fetchFavorites = useCallback(async () => {
+    if (!user) return;
+    try {
+      const data = await getMyFavorites(user.id);
+      setFavorites(data);
+    } catch {
+      // silent
+    } finally {
+      setLoading(false);
+    }
+  }, [user]);
+
+  useEffect(() => { fetchFavorites(); }, [fetchFavorites]);
+
+  const handleRemove = async (fav) => {
+    try {
+      await toggleFavorite(user.id, fav.sitter_id);
+      setFavorites(prev => prev.filter(f => f.id !== fav.id));
+    } catch { /* silent */ }
   };
 
   return (
@@ -57,15 +79,17 @@ export const FavoritesScreen = ({ navigation }) => {
         <Text style={styles.count}>{favorites.length}</Text>
       </View>
 
-      {favorites.length > 0 ? (
+      {loading ? (
+        <ActivityIndicator size="large" color={Colors.primary} style={{ flex: 1 }} />
+      ) : favorites.length > 0 ? (
         <FlatList
           data={favorites}
           keyExtractor={(item) => item.id}
           renderItem={({ item }) => (
             <FavoriteCard
-              sitter={item}
-              onRemove={() => handleRemove(item.id)}
-              onPress={() => navigation.navigate('Home', { screen: 'Profile', params: { sitter: item } })}
+              fav={item}
+              onRemove={() => handleRemove(item)}
+              onPress={() => navigation.navigate('Search', { screen: 'ProfileSearch', params: { sitter: item.sitter } })}
             />
           )}
           contentContainerStyle={styles.list}

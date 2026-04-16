@@ -1,44 +1,33 @@
 import { MaterialIcons } from '@expo/vector-icons';
-import { useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import {
-    Alert,
-    FlatList,
-    Image,
-    StyleSheet,
-    Text,
-    TouchableOpacity,
-    View,
+  ActivityIndicator,
+  Alert,
+  FlatList,
+  Image,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Colors from '../constants/colors';
+import { useAuth } from '../contexts/AuthContext';
+import { getMyBookings, updateBookingStatus } from '../services/api';
 
-const MOCK_BOOKINGS = [
-  {
-    id: '1', sitterName: 'Marie Dupont', sitterImage: 'https://randomuser.me/api/portraits/women/1.jpg',
-    service: 'Garde à domicile', pet: 'Luna', dates: '15-18 Juin 2025',
-    total: '135€', status: 'upcoming', statusLabel: 'À venir',
-  },
-  {
-    id: '2', sitterName: 'Pierre Martin', sitterImage: 'https://randomuser.me/api/portraits/men/2.jpg',
-    service: 'Promenade', pet: 'Max', dates: '20 Juin 2025',
-    total: '25€', status: 'upcoming', statusLabel: 'À venir',
-  },
-  {
-    id: '3', sitterName: 'Sophie Bernard', sitterImage: 'https://randomuser.me/api/portraits/women/3.jpg',
-    service: 'Garde à domicile', pet: 'Luna', dates: '1-3 Mai 2025',
-    total: '105€', status: 'completed', statusLabel: 'Terminée',
-  },
-  {
-    id: '4', sitterName: 'Marie Dupont', sitterImage: 'https://randomuser.me/api/portraits/women/1.jpg',
-    service: 'Visite à domicile', pet: 'Max', dates: '10 Avril 2025',
-    total: '20€', status: 'completed', statusLabel: 'Terminée',
-  },
-  {
-    id: '5', sitterName: 'Lucas Moreau', sitterImage: 'https://randomuser.me/api/portraits/men/4.jpg',
-    service: 'Pension', pet: 'Luna', dates: '20-22 Mars 2025',
-    total: '150€', status: 'cancelled', statusLabel: 'Annulée',
-  },
-];
+const STATUS_LABELS = { pending: 'En attente', confirmed: 'Confirmée', completed: 'Terminée', cancelled: 'Annulée' };
+const STATUS_TAB = { pending: 'upcoming', confirmed: 'upcoming', completed: 'completed', cancelled: 'cancelled' };
+
+const normalizeBooking = (b) => ({
+  ...b,
+  sitterName: b.sitter?.user?.full_name || 'Gardien',
+  sitterImage: b.sitter?.user?.avatar_url,
+  pet: b.pet?.name || '-',
+  dates: b.start_date ? `${new Date(b.start_date).toLocaleDateString('fr-FR')} → ${new Date(b.end_date).toLocaleDateString('fr-FR')}` : '-',
+  total: b.total_price != null ? `${b.total_price}€` : '-',
+  statusLabel: STATUS_LABELS[b.status] || b.status,
+  statusTab: STATUS_TAB[b.status] || b.status,
+});
 
 const TABS = [
   { key: 'all', label: 'Toutes' },
@@ -81,11 +70,42 @@ const BookingCard = ({ booking, onPress }) => (
 );
 
 export const MyBookingsScreen = ({ navigation }) => {
+  const { user } = useAuth();
   const [activeTab, setActiveTab] = useState('all');
+  const [bookings, setBookings] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  const fetchBookings = useCallback(async () => {
+    if (!user) return;
+    try {
+      const data = await getMyBookings(user.id);
+      setBookings(data.map(normalizeBooking));
+    } catch {
+      // silent
+    } finally {
+      setLoading(false);
+    }
+  }, [user]);
+
+  useEffect(() => { fetchBookings(); }, [fetchBookings]);
+
+  const handleCancel = async (booking) => {
+    Alert.alert('Annuler la réservation', 'Êtes-vous sûr ?', [
+      { text: 'Non', style: 'cancel' },
+      { text: 'Oui, annuler', style: 'destructive', onPress: async () => {
+        try {
+          await updateBookingStatus(booking.id, 'cancelled');
+          await fetchBookings();
+        } catch {
+          Alert.alert('Erreur', "Impossible d'annuler la réservation.");
+        }
+      }},
+    ]);
+  };
 
   const filtered = activeTab === 'all'
-    ? MOCK_BOOKINGS
-    : MOCK_BOOKINGS.filter(b => b.status === activeTab);
+    ? bookings
+    : bookings.filter(b => b.statusTab === activeTab);
 
   return (
     <SafeAreaView style={styles.container}>
@@ -111,7 +131,9 @@ export const MyBookingsScreen = ({ navigation }) => {
         ))}
       </View>
 
-      {filtered.length > 0 ? (
+      {loading ? (
+        <ActivityIndicator size="large" color={Colors.primary} style={{ flex: 1 }} />
+      ) : filtered.length > 0 ? (
         <FlatList
           data={filtered}
           keyExtractor={item => item.id}
@@ -119,10 +141,10 @@ export const MyBookingsScreen = ({ navigation }) => {
             <BookingCard booking={item} onPress={() => {
               Alert.alert(
                 item.sitterName,
-                `Service : ${item.service}\nAnimal : ${item.pet}\nDates : ${item.dates}\nTotal : ${item.total}\nStatut : ${item.statusLabel}`,
+                `Animal : ${item.pet}\nDates : ${item.dates}\nTotal : ${item.total}\nStatut : ${item.statusLabel}`,
                 [
                   { text: 'Fermer', style: 'cancel' },
-                  ...(item.status === 'upcoming' ? [{ text: 'Annuler', style: 'destructive', onPress: () => {} }] : []),
+                  ...(item.statusTab === 'upcoming' ? [{ text: 'Annuler', style: 'destructive', onPress: () => handleCancel(item) }] : []),
                 ]
               );
             }} />
