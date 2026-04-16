@@ -1,6 +1,8 @@
 import { MaterialIcons } from '@expo/vector-icons';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
+    ActivityIndicator,
+    Alert,
     Image,
     ScrollView,
     StyleSheet,
@@ -10,16 +12,28 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Colors from '../constants/colors';
+import { useAuth } from '../contexts/AuthContext';
+import { createBooking, getMyPets } from '../services/api';
 
-const DATES = [
-  { day: 'Lun', date: '7', month: 'Avr' },
-  { day: 'Mar', date: '8', month: 'Avr' },
-  { day: 'Mer', date: '9', month: 'Avr' },
-  { day: 'Jeu', date: '10', month: 'Avr' },
-  { day: 'Ven', date: '11', month: 'Avr' },
-  { day: 'Sam', date: '12', month: 'Avr' },
-  { day: 'Dim', date: '13', month: 'Avr' },
-];
+const WEEK_DAYS = ['Dim', 'Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam'];
+const MONTHS    = ['Jan', 'Fév', 'Mar', 'Avr', 'Mai', 'Jun', 'Jul', 'Aoû', 'Sep', 'Oct', 'Nov', 'Déc'];
+
+function generateDates() {
+  const result = [];
+  for (let i = 0; i < 14; i++) {
+    const d = new Date();
+    d.setDate(d.getDate() + i);
+    result.push({
+      day:   WEEK_DAYS[d.getDay()],
+      date:  d.getDate().toString(),
+      month: MONTHS[d.getMonth()],
+      iso:   d.toISOString().split('T')[0],
+    });
+  }
+  return result;
+}
+
+const DATES = generateDates();
 
 const SERVICES = [
   { id: 'walk', icon: 'directions-walk', label: 'Promenade', price: 15 },
@@ -28,27 +42,72 @@ const SERVICES = [
   { id: 'medical', icon: 'healing', label: 'Soins médicaux', price: 30 },
 ];
 
-const PETS = [
-  { id: '1', name: 'Rex', breed: 'Golden Retriever', image: 'https://images.unsplash.com/photo-1552053831-71594a27c62d?w=200&h=200&fit=crop' },
-  { id: '2', name: 'Luna', breed: 'Berger Australien', image: 'https://images.unsplash.com/photo-1587300003388-59208cc962cb?w=200&h=200&fit=crop' },
-];
+
 
 export const BookingScreen = ({ route, navigation }) => {
   const { sitter } = route.params || {};
-  const [selectedDates, setSelectedDates] = useState([]);
-  const [selectedService, setSelectedService] = useState(null);
-  const [selectedPet, setSelectedPet] = useState(null);
+  const { user } = useAuth();
 
-  const toggleDate = (date) => {
+  const [pets, setPets]                     = useState([]);
+  const [petsLoading, setPetsLoading]       = useState(true);
+  const [selectedDates, setSelectedDates]   = useState([]);
+  const [selectedService, setSelectedService] = useState(null);
+  const [selectedPet, setSelectedPet]       = useState(null);
+  const [submitting, setSubmitting]         = useState(false);
+
+  useEffect(() => {
+    if (!user) return;
+    setPetsLoading(true);
+    getMyPets(user.id)
+      .then(setPets)
+      .catch(() => setPets([]))
+      .finally(() => setPetsLoading(false));
+  }, [user]);
+
+  const toggleDate = (iso) => {
     setSelectedDates(prev =>
-      prev.includes(date) ? prev.filter(d => d !== date) : [...prev, date]
+      prev.includes(iso) ? prev.filter(d => d !== iso) : [...prev, iso]
     );
   };
 
   const selectedServiceData = SERVICES.find(s => s.id === selectedService);
-  const totalPrice = selectedServiceData ? selectedServiceData.price * Math.max(selectedDates.length, 1) : 0;
+  const totalPrice  = selectedServiceData ? selectedServiceData.price * Math.max(selectedDates.length, 1) : 0;
+  const fees        = Math.round(totalPrice * 0.1);
+  const grandTotal  = totalPrice + fees;
 
-  const canBook = selectedDates.length > 0 && selectedService && selectedPet;
+  const canBook = selectedDates.length > 0 && selectedService && selectedPet && !submitting;
+
+  const handleBook = async () => {
+    if (!canBook) return;
+    setSubmitting(true);
+    try {
+      const sorted     = [...selectedDates].sort();
+      const startDate  = sorted[0];
+      const endDate    = sorted[sorted.length - 1];
+      await createBooking({
+        owner_id:     user.id,
+        sitter_id:    sitter?.id,
+        pet_id:       selectedPet,
+        service_type: selectedService,
+        start_date:   startDate,
+        end_date:     endDate,
+        total_price:  grandTotal,
+      });
+      navigation.navigate('BookingConfirmation', {
+        sitter,
+        service: selectedServiceData,
+        dates:   selectedDates,
+        total:   grandTotal,
+      });
+    } catch (err) {
+      Alert.alert('Erreur', err.message || 'Impossible de créer la réservation.');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const sitterName  = sitter?.name || sitter?.user?.full_name || 'Gardien';
+  const sitterImage = sitter?.image || sitter?.user?.avatar_url;
 
   return (
     <SafeAreaView style={styles.container}>
@@ -65,14 +124,20 @@ export const BookingScreen = ({ route, navigation }) => {
         {/* Sitter Info */}
         {sitter && (
           <View style={styles.sitterCard}>
-            <Image source={{ uri: sitter.image }} style={styles.sitterImage} />
+            {sitterImage ? (
+              <Image source={{ uri: sitterImage }} style={styles.sitterImage} />
+            ) : (
+              <View style={[styles.sitterImage, styles.sitterImagePlaceholder]}>
+                <MaterialIcons name="person" size={28} color={Colors.onSurfaceVariant} />
+              </View>
+            )}
             <View style={styles.sitterInfo}>
-              <Text style={styles.sitterName}>{sitter.name}</Text>
+              <Text style={styles.sitterName}>{sitterName}</Text>
               <View style={styles.sitterRating}>
                 <MaterialIcons name="star" size={16} color={Colors.tertiary} />
                 <Text style={styles.sitterRatingText}>{sitter.rating} ({sitter.reviews} avis)</Text>
               </View>
-              <Text style={styles.sitterPrice}>À partir de {sitter.price}€/jour</Text>
+              <Text style={styles.sitterPrice}>À partir de {sitter.price || sitter.price_per_day || '—'}€/jour</Text>
             </View>
           </View>
         )}
@@ -80,24 +145,36 @@ export const BookingScreen = ({ route, navigation }) => {
         {/* Select Pet */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Quel animal ?</Text>
-          <View style={styles.petsRow}>
-            {PETS.map(pet => (
-              <TouchableOpacity
-                key={pet.id}
-                style={[styles.petCard, selectedPet === pet.id && styles.petCardSelected]}
-                onPress={() => setSelectedPet(pet.id)}
-              >
-                <Image source={{ uri: pet.image }} style={styles.petImage} />
-                <Text style={[styles.petName, selectedPet === pet.id && styles.petNameSelected]}>{pet.name}</Text>
-                <Text style={styles.petBreed}>{pet.breed}</Text>
-                {selectedPet === pet.id && (
-                  <View style={styles.petCheck}>
-                    <MaterialIcons name="check-circle" size={20} color={Colors.primary} />
-                  </View>
-                )}
-              </TouchableOpacity>
-            ))}
-          </View>
+          {petsLoading ? (
+            <ActivityIndicator color={Colors.primary} style={{ marginTop: 12 }} />
+          ) : pets.length === 0 ? (
+            <Text style={styles.emptyPets}>Vous n'avez pas encore d'animal enregistré.</Text>
+          ) : (
+            <View style={styles.petsRow}>
+              {pets.map(pet => (
+                <TouchableOpacity
+                  key={pet.id}
+                  style={[styles.petCard, selectedPet === pet.id && styles.petCardSelected]}
+                  onPress={() => setSelectedPet(pet.id)}
+                >
+                  {pet.avatar_url ? (
+                    <Image source={{ uri: pet.avatar_url }} style={styles.petImage} />
+                  ) : (
+                    <View style={[styles.petImage, styles.petImagePlaceholder]}>
+                      <MaterialIcons name="pets" size={24} color={Colors.onSurfaceVariant} />
+                    </View>
+                  )}
+                  <Text style={[styles.petName, selectedPet === pet.id && styles.petNameSelected]}>{pet.name}</Text>
+                  <Text style={styles.petBreed}>{pet.breed || pet.species}</Text>
+                  {selectedPet === pet.id && (
+                    <View style={styles.petCheck}>
+                      <MaterialIcons name="check-circle" size={20} color={Colors.primary} />
+                    </View>
+                  )}
+                </TouchableOpacity>
+              ))}
+            </View>
+          )}
         </View>
 
         {/* Select Service */}
@@ -129,13 +206,13 @@ export const BookingScreen = ({ route, navigation }) => {
           <ScrollView horizontal showsHorizontalScrollIndicator={false}>
             {DATES.map(d => (
               <TouchableOpacity
-                key={d.date}
-                style={[styles.dateCard, selectedDates.includes(d.date) && styles.dateCardSelected]}
-                onPress={() => toggleDate(d.date)}
+                key={d.iso}
+                style={[styles.dateCard, selectedDates.includes(d.iso) && styles.dateCardSelected]}
+                onPress={() => toggleDate(d.iso)}
               >
-                <Text style={[styles.dateDay, selectedDates.includes(d.date) && styles.dateDaySelected]}>{d.day}</Text>
-                <Text style={[styles.dateNumber, selectedDates.includes(d.date) && styles.dateNumberSelected]}>{d.date}</Text>
-                <Text style={[styles.dateMonth, selectedDates.includes(d.date) && styles.dateMonthSelected]}>{d.month}</Text>
+                <Text style={[styles.dateDay, selectedDates.includes(d.iso) && styles.dateDaySelected]}>{d.day}</Text>
+                <Text style={[styles.dateNumber, selectedDates.includes(d.iso) && styles.dateNumberSelected]}>{d.date}</Text>
+                <Text style={[styles.dateMonth, selectedDates.includes(d.iso) && styles.dateMonthSelected]}>{d.month}</Text>
               </TouchableOpacity>
             ))}
           </ScrollView>
@@ -151,11 +228,11 @@ export const BookingScreen = ({ route, navigation }) => {
             </View>
             <View style={styles.summaryRow}>
               <Text style={styles.summaryLabel}>Frais de service</Text>
-              <Text style={styles.summaryValue}>{Math.round(totalPrice * 0.1)}€</Text>
+              <Text style={styles.summaryValue}>{fees}€</Text>
             </View>
             <View style={[styles.summaryRow, styles.summaryTotal]}>
               <Text style={styles.summaryTotalLabel}>Total</Text>
-              <Text style={styles.summaryTotalValue}>{totalPrice + Math.round(totalPrice * 0.1)}€</Text>
+              <Text style={styles.summaryTotalValue}>{grandTotal}€</Text>
             </View>
           </View>
         )}
@@ -166,15 +243,18 @@ export const BookingScreen = ({ route, navigation }) => {
       {/* CTA */}
       <View style={styles.ctaContainer}>
         <View style={styles.ctaPriceContainer}>
-          <Text style={styles.ctaTotal}>{totalPrice + Math.round(totalPrice * 0.1)}€</Text>
+          <Text style={styles.ctaTotal}>{grandTotal}€</Text>
           <Text style={styles.ctaSubtotal}>{selectedDates.length} jour(s)</Text>
         </View>
         <TouchableOpacity
           style={[styles.ctaButton, !canBook && styles.ctaButtonDisabled]}
           disabled={!canBook}
-          onPress={() => navigation.navigate('BookingConfirmation', { sitter, service: selectedServiceData, dates: selectedDates, total: totalPrice + Math.round(totalPrice * 0.1) })}
+          onPress={handleBook}
         >
-          <Text style={styles.ctaButtonText}>Confirmer la réservation</Text>
+          {submitting
+            ? <ActivityIndicator color={Colors.onPrimary} />
+            : <Text style={styles.ctaButtonText}>Confirmer la réservation</Text>
+          }
         </TouchableOpacity>
       </View>
     </SafeAreaView>
@@ -197,6 +277,7 @@ const styles = StyleSheet.create({
     elevation: 2, shadowColor: Colors.shadow, shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 8,
   },
   sitterImage: { width: 60, height: 60, borderRadius: 30, marginRight: 14 },
+  sitterImagePlaceholder: { backgroundColor: Colors.surfaceContainerHigh, justifyContent: 'center', alignItems: 'center' },
   sitterInfo: { flex: 1, justifyContent: 'center' },
   sitterName: { fontSize: 17, fontWeight: '700', color: Colors.onSurface },
   sitterRating: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 4 },
@@ -204,13 +285,15 @@ const styles = StyleSheet.create({
   sitterPrice: { fontSize: 14, fontWeight: '600', color: Colors.primary, marginTop: 4 },
   section: { paddingHorizontal: 16, marginTop: 24 },
   sectionTitle: { fontSize: 16, fontWeight: '700', color: Colors.onSurface, marginBottom: 14 },
-  petsRow: { flexDirection: 'row', gap: 12 },
+  emptyPets: { fontSize: 14, color: Colors.onSurfaceVariant, fontStyle: 'italic', textAlign: 'center', marginTop: 8 },
+  petsRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 12 },
   petCard: {
-    alignItems: 'center', padding: 14, borderRadius: 16, flex: 1,
+    alignItems: 'center', padding: 14, borderRadius: 16, minWidth: 100,
     backgroundColor: Colors.surfaceContainerLowest, borderWidth: 2, borderColor: 'transparent',
   },
   petCardSelected: { borderColor: Colors.primary, backgroundColor: Colors.primaryContainer + '20' },
   petImage: { width: 56, height: 56, borderRadius: 28, marginBottom: 8 },
+  petImagePlaceholder: { backgroundColor: Colors.surfaceContainerHigh, justifyContent: 'center', alignItems: 'center' },
   petName: { fontSize: 14, fontWeight: '700', color: Colors.onSurface },
   petNameSelected: { color: Colors.primary },
   petBreed: { fontSize: 11, color: Colors.onSurfaceVariant, marginTop: 2, textAlign: 'center' },

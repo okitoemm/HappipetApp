@@ -1,6 +1,7 @@
 import { MaterialIcons } from '@expo/vector-icons';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
+    ActivityIndicator,
     Alert,
     Image,
     ScrollView,
@@ -11,6 +12,9 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Colors from '../constants/colors';
+import { useAuth } from '../contexts/AuthContext';
+import { supabase } from '../lib/supabase';
+import { getSitterGallery, getSitterReviews, toggleFavorite } from '../services/api';
 
 const ReviewItem = ({ review }) => {
   return (
@@ -56,15 +60,66 @@ const GalleryGrid = ({ images }) => {
 
 export const ProfileScreen = ({ route, navigation }) => {
   const { sitter } = route.params || {};
+  const { user } = useAuth();
+
+  const [reviews, setReviews]       = useState([]);
+  const [gallery, setGallery]       = useState([]);
+  const [loading, setLoading]       = useState(true);
   const [isFavorite, setIsFavorite] = useState(false);
-  
+  const [favLoading, setFavLoading] = useState(false);
+
+  useEffect(() => {
+    if (!sitter?.id) { setLoading(false); return; }
+    const load = async () => {
+      try {
+        const [reviewsData, galleryData] = await Promise.all([
+          getSitterReviews(sitter.id),
+          getSitterGallery(sitter.user?.id),
+        ]);
+        setReviews(reviewsData);
+        setGallery(galleryData.map(img => img.url).filter(Boolean));
+      } catch { /* silent */ } finally {
+        setLoading(false);
+      }
+      if (user) {
+        const { data } = await supabase
+          .from('favorites')
+          .select('id')
+          .eq('user_id', user.id)
+          .eq('sitter_id', sitter.id)
+          .maybeSingle();
+        setIsFavorite(!!data);
+      }
+    };
+    load();
+  }, [sitter?.id]);
+
+  const handleFavoriteToggle = async () => {
+    if (!user || favLoading) return;
+    setFavLoading(true);
+    try {
+      const isNowFav = await toggleFavorite(user.id, sitter.id);
+      setIsFavorite(isNowFav);
+    } catch { /* silent */ } finally {
+      setFavLoading(false);
+    }
+  };
+
   if (!sitter) {
     return (
       <SafeAreaView style={styles.container}>
-        <Text>Sitter not found</Text>
+        <Text>Sitter introuvable</Text>
       </SafeAreaView>
     );
   }
+
+  const sitterName     = sitter.user?.full_name  || sitter.name      || 'Gardien';
+  const sitterImage    = sitter.user?.avatar_url || sitter.image;
+  const sitterLocation = sitter.location_text    || sitter.location  || '';
+  const sitterBio      = sitter.bio              || sitter.user?.bio || sitter.description || '';
+  const sitterServices = sitter.services         || [];
+  const sitterRating   = sitter.rating           ?? sitter.rating    ?? '—';
+  const sitterPrice    = sitter.price_per_day    || sitter.price;
 
   return (
     <SafeAreaView style={styles.container}>
@@ -72,7 +127,7 @@ export const ProfileScreen = ({ route, navigation }) => {
         {/* Hero Image */}
         <View style={styles.heroContainer}>
           <Image
-            source={{ uri: sitter.image }}
+            source={{ uri: sitterImage }}
             style={styles.heroImage}
             resizeMode="cover"
           />
@@ -86,7 +141,7 @@ export const ProfileScreen = ({ route, navigation }) => {
             >
               <MaterialIcons name="arrow-back" size={20} color={Colors.onSurface} />
             </TouchableOpacity>
-            <TouchableOpacity style={styles.favoriteButton} onPress={() => setIsFavorite(!isFavorite)}>
+            <TouchableOpacity style={styles.favoriteButton} onPress={handleFavoriteToggle} disabled={favLoading}>
               <MaterialIcons name={isFavorite ? 'favorite' : 'favorite-border'} size={20} color={isFavorite ? Colors.error : Colors.onSurface} />
             </TouchableOpacity>
           </View>
@@ -97,20 +152,20 @@ export const ProfileScreen = ({ route, navigation }) => {
           {/* Header */}
           <View style={styles.profileHeader}>
             <View style={styles.profileInfo}>
-              <Text style={styles.profileName}>{sitter.name}</Text>
+              <Text style={styles.profileName}>{sitterName}</Text>
               <View style={styles.locationRow}>
                 <MaterialIcons name="location-on" size={18} color={Colors.secondary} />
-                <Text style={styles.locationText}>{sitter.location}</Text>
+                <Text style={styles.locationText}>{sitterLocation}</Text>
               </View>
             </View>
             <View style={styles.statsContainer}>
               <View style={styles.statBox}>
-                <Text style={styles.statValue}>{sitter.rating}/5</Text>
-                <Text style={styles.statLabel}>Avis</Text>
+                <Text style={styles.statValue}>{sitterRating ? `${sitterRating}/5` : '—'}</Text>
+                <Text style={styles.statLabel}>Note</Text>
               </View>
               <View style={styles.statBox}>
-                <Text style={styles.statValue}>{sitter.reviews}+</Text>
-                <Text style={styles.statLabel}>Gardes</Text>
+                <Text style={styles.statValue}>{reviews.length}</Text>
+                <Text style={styles.statLabel}>Avis</Text>
               </View>
             </View>
           </View>
@@ -123,11 +178,11 @@ export const ProfileScreen = ({ route, navigation }) => {
             </View>
             <View style={styles.aboutBox}>
               <Text style={styles.aboutText}>
-                "{sitter.description}"
+                {sitterBio ? `"${sitterBio}"` : 'Pas encore de description.'}
               </Text>
-              {(sitter.services && sitter.services.length > 0) && (
+              {sitterServices.length > 0 && (
                 <View style={styles.servicesChips}>
-                  {sitter.services.map((service) => (
+                  {sitterServices.map((service) => (
                     <View key={service} style={styles.serviceChip}>
                       <Text style={styles.serviceChipText}>{service}</Text>
                     </View>
@@ -150,8 +205,10 @@ export const ProfileScreen = ({ route, navigation }) => {
                 </TouchableOpacity>
               )}
             </View>
-            {sitter.gallery && sitter.gallery.length > 0 ? (
-              <GalleryGrid images={sitter.gallery} />
+            {loading ? (
+              <ActivityIndicator color={Colors.primary} />
+            ) : gallery.length > 0 ? (
+              <GalleryGrid images={gallery} />
             ) : (
               <View style={styles.emptySection}>
                 <MaterialIcons name="photo-library" size={32} color={Colors.outlineVariant} />
@@ -167,9 +224,17 @@ export const ProfileScreen = ({ route, navigation }) => {
               <Text style={styles.sectionTitle}>Avis récents</Text>
             </View>
             <View style={styles.reviewsContainer}>
-              {sitter.reviews_data && sitter.reviews_data.length > 0 ? (
-                sitter.reviews_data.map((review) => (
-                  <ReviewItem key={review.id} review={review} />
+              {loading ? (
+                <ActivityIndicator color={Colors.primary} />
+              ) : reviews.length > 0 ? (
+                reviews.map(review => (
+                  <ReviewItem key={review.id} review={{
+                    id: review.id,
+                    reviewer: review.reviewer?.full_name || 'Utilisateur',
+                    date: new Date(review.created_at).toLocaleDateString('fr-FR', { month: 'short', year: 'numeric' }),
+                    rating: review.rating,
+                    comment: review.comment,
+                  }} />
                 ))
               ) : (
                 <View style={styles.emptySection}>
@@ -192,7 +257,7 @@ export const ProfileScreen = ({ route, navigation }) => {
               style={styles.ctaButtonSecondary}
               onPress={() => navigation.navigate('Messages', {
                 screen: 'Chat',
-                params: { conversation: { id: sitter.id, name: sitter.name, image: sitter.image, online: true } },
+                params: { conversation: { id: sitter.id, name: sitterName, image: sitterImage, online: true } },
               })}
             >
               <MaterialIcons name="chat" size={18} color={Colors.primary} />

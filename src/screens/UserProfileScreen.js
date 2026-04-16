@@ -1,18 +1,24 @@
 import { MaterialIcons } from '@expo/vector-icons';
+import * as ImagePicker from 'expo-image-picker';
 import { useCallback, useEffect, useState } from 'react';
 import {
+  ActivityIndicator,
   Alert,
   Image,
+  KeyboardAvoidingView,
+  Modal,
+  Platform,
   ScrollView,
   StyleSheet,
   Text,
+  TextInput,
   TouchableOpacity,
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Colors from '../constants/colors';
 import { useAuth } from '../contexts/AuthContext';
-import { getBookingsCount, getFavoritesCount, getMyPets } from '../services/api';
+import { addPet, getBookingsCount, getFavoritesCount, getMyPets, updateProfile, uploadImage, upsertSitterProfile } from '../services/api';
 
 const MenuItem = ({ icon, label, value, onPress, showChevron = true, color }) => (
   <TouchableOpacity style={styles.menuItem} onPress={onPress} activeOpacity={0.7}>
@@ -45,9 +51,39 @@ const PetCard = ({ pet }) => (
 );
 
 export const UserProfileScreen = ({ navigation }) => {
-  const { user, profile, signOut } = useAuth();
+  const { user, profile, signOut, refreshProfile } = useAuth();
   const [pets, setPets] = useState([]);
   const [stats, setStats] = useState({ bookings: 0, reviews: 0, favorites: 0 });
+  const [avatarUploading, setAvatarUploading] = useState(false);
+
+  // Edit modal
+  const [editVisible, setEditVisible] = useState(false);
+  const [fullName, setFullName] = useState('');
+  const [phone, setPhone] = useState('');
+  const [city, setCity] = useState('');
+  const [saving, setSaving] = useState(false);
+
+  // Add Pet modal
+  const [addPetVisible, setAddPetVisible] = useState(false);
+  const [petName, setPetName] = useState('');
+  const [petSpecies, setPetSpecies] = useState('dog');
+  const [petBreed, setPetBreed] = useState('');
+  const [petSaving, setPetSaving] = useState(false);
+
+  // Become Sitter modal
+  const [sitterModalVisible, setSitterModalVisible] = useState(false);
+  const [sitterDesc, setSitterDesc] = useState('');
+  const [sitterPrice, setSitterPrice] = useState('');
+  const [sitterLocation, setSitterLocation] = useState('');
+  const [sitterSaving, setSitterSaving] = useState(false);
+
+  useEffect(() => {
+    if (editVisible && profile) {
+      setFullName(profile.full_name || '');
+      setPhone(profile.phone || '');
+      setCity(profile.city || '');
+    }
+  }, [editVisible, profile]);
 
   const fetchData = useCallback(async () => {
     if (!user) return;
@@ -66,6 +102,99 @@ export const UserProfileScreen = ({ navigation }) => {
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
+  const handleSave = async () => {
+    if (!fullName.trim()) {
+      Alert.alert('Requis', 'Le nom ne peut pas être vide.');
+      return;
+    }
+    setSaving(true);
+    try {
+      await updateProfile(user.id, {
+        full_name: fullName.trim(),
+        phone: phone.trim(),
+        city: city.trim(),
+      });
+      await refreshProfile();
+      setEditVisible(false);
+    } catch {
+      Alert.alert('Erreur', 'La mise à jour a échoué.');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleAvatarPick = async () => {
+    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (status !== 'granted') {
+      Alert.alert('Permission refusée', 'L\'accès à la galerie est nécessaire.');
+      return;
+    }
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaType.Images,
+      allowsEditing: true,
+      aspect: [1, 1],
+      quality: 0.7,
+    });
+    if (result.canceled) return;
+    const uri = result.assets[0].uri;
+    setAvatarUploading(true);
+    try {
+      const publicUrl = await uploadImage('avatars', user.id, uri);
+      await updateProfile(user.id, { avatar_url: publicUrl });
+      await refreshProfile();
+    } catch (err) {
+      Alert.alert('Erreur', err.message || 'Impossible de mettre à jour la photo.');
+    } finally {
+      setAvatarUploading(false);
+    }
+  };
+
+  const handleAddPet = async () => {
+    if (!petName.trim()) {
+      Alert.alert('Requis', 'Le nom de l\'animal est obligatoire.');
+      return;
+    }
+    setPetSaving(true);
+    try {
+      await addPet({
+        owner_id: user.id,
+        name: petName.trim(),
+        species: petSpecies,
+        breed: petBreed.trim() || null,
+      });
+      setPetName('');
+      setPetSpecies('dog');
+      setPetBreed('');
+      setAddPetVisible(false);
+      fetchData();
+    } catch (err) {
+      Alert.alert('Erreur', err.message || 'Impossible d\'ajouter l\'animal.');
+    } finally {
+      setPetSaving(false);
+    }
+  };
+
+  const handleBecomeSitter = async () => {
+    if (!sitterPrice.trim()) {
+      Alert.alert('Requis', 'Veuillez indiquer votre tarif par jour.');
+      return;
+    }
+    setSitterSaving(true);
+    try {
+      await upsertSitterProfile(user.id, {
+        description: sitterDesc.trim(),
+        price_per_day: parseFloat(sitterPrice) || 0,
+        location_text: sitterLocation.trim() || profile?.city || '',
+      });
+      setSitterModalVisible(false);
+      Alert.alert('Profil créé !', 'Votre profil de gardien est maintenant visible dans les recherches.');
+    } catch (err) {
+      Alert.alert('Erreur', err.message || 'Impossible de créer le profil gardien.');
+    } finally {
+      setSitterSaving(false);
+    }
+  };
+
   const memberSince = profile?.created_at
     ? new Date(profile.created_at).toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' })
     : '';
@@ -83,8 +212,27 @@ export const UserProfileScreen = ({ navigation }) => {
 
         {/* Profile Card */}
         <View style={styles.profileCard}>
-          <Image source={{ uri: profile?.avatar_url }} style={styles.avatar} />
-          <Text style={styles.userName}>{profile?.full_name || user?.email}</Text>
+          <TouchableOpacity onPress={handleAvatarPick} style={styles.avatarContainer} disabled={avatarUploading}>
+            {profile?.avatar_url ? (
+              <Image source={{ uri: profile.avatar_url }} style={styles.avatar} />
+            ) : (
+              <View style={[styles.avatar, styles.avatarPlaceholder]}>
+                <MaterialIcons name="person" size={40} color={Colors.onSurfaceVariant} />
+              </View>
+            )}
+            <View style={styles.avatarOverlay}>
+              {avatarUploading
+                ? <ActivityIndicator size="small" color={Colors.onPrimary} />
+                : <MaterialIcons name="camera-alt" size={16} color={Colors.onPrimary} />
+              }
+            </View>
+          </TouchableOpacity>
+          <View style={styles.userNameRow}>
+            <Text style={styles.userName}>{profile?.full_name || user?.email}</Text>
+            <TouchableOpacity onPress={() => setEditVisible(true)} style={styles.editNameBtn}>
+              <MaterialIcons name="edit" size={16} color={Colors.primary} />
+            </TouchableOpacity>
+          </View>
           <Text style={styles.userEmail}>{user?.email}</Text>
           {memberSince ? <Text style={styles.memberSince}>Membre depuis {memberSince}</Text> : null}
 
@@ -111,7 +259,7 @@ export const UserProfileScreen = ({ navigation }) => {
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
             <Text style={styles.sectionTitle}>Mes animaux</Text>
-            <TouchableOpacity onPress={() => Alert.alert('Ajouter un animal', 'Cette fonctionnalité sera disponible prochainement.')}>
+            <TouchableOpacity onPress={() => setAddPetVisible(true)}>
               <MaterialIcons name="add-circle-outline" size={24} color={Colors.primary} />
             </TouchableOpacity>
           </View>
@@ -119,7 +267,7 @@ export const UserProfileScreen = ({ navigation }) => {
             {pets.map((pet) => (
               <PetCard key={pet.id} pet={pet} />
             ))}
-            <TouchableOpacity style={styles.addPetCard} onPress={() => Alert.alert('Ajouter un animal', 'Cette fonctionnalité sera disponible prochainement.')}>
+            <TouchableOpacity style={styles.addPetCard} onPress={() => setAddPetVisible(true)}>
               <MaterialIcons name="add" size={32} color={Colors.primary} />
               <Text style={styles.addPetText}>Ajouter</Text>
             </TouchableOpacity>
@@ -132,6 +280,12 @@ export const UserProfileScreen = ({ navigation }) => {
           <MenuItem icon="favorite" label="Favoris" color={Colors.error} onPress={() => navigation.navigate('Favorites')} />
           <MenuItem icon="notifications" label="Notifications" color={Colors.secondary} onPress={() => navigation.navigate('Notifications')} />
           <MenuItem icon="star" label="Mes avis" color={Colors.tertiary} onPress={() => Alert.alert('Mes avis', 'Cette fonctionnalité sera disponible prochainement.')} />
+          <MenuItem icon="pets" label="Devenir gardien" color={Colors.primary} onPress={() => {
+            setSitterDesc(profile?.bio || '');
+            setSitterLocation(profile?.city || '');
+            setSitterPrice('');
+            setSitterModalVisible(true);
+          }} />
         </View>
 
         <View style={styles.menuSection}>
@@ -147,6 +301,189 @@ export const UserProfileScreen = ({ navigation }) => {
 
         <View style={{ height: 40 }} />
       </ScrollView>
+
+      {/* ---- Edit Name Modal ---- */}
+      <Modal visible={editVisible} animationType="slide" transparent>
+        <KeyboardAvoidingView
+          style={styles.modalOverlay}
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        >
+          <View style={styles.modalSheet}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Modifier mes infos</Text>
+              <TouchableOpacity onPress={() => setEditVisible(false)}>
+                <MaterialIcons name="close" size={24} color={Colors.onSurfaceVariant} />
+              </TouchableOpacity>
+            </View>
+
+            <Text style={styles.fieldLabel}>Prénom / Nom *</Text>
+            <TextInput
+              style={styles.fieldInput}
+              value={fullName}
+              onChangeText={setFullName}
+              placeholder="Votre nom complet"
+              placeholderTextColor={Colors.onSurfaceVariant}
+              autoCapitalize="words"
+              autoFocus
+            />
+
+            <Text style={styles.fieldLabel}>Téléphone</Text>
+            <TextInput
+              style={styles.fieldInput}
+              value={phone}
+              onChangeText={setPhone}
+              placeholder="+33 6 12 34 56 78"
+              placeholderTextColor={Colors.onSurfaceVariant}
+              keyboardType="phone-pad"
+            />
+
+            <Text style={styles.fieldLabel}>Ville</Text>
+            <TextInput
+              style={styles.fieldInput}
+              value={city}
+              onChangeText={setCity}
+              placeholder="Paris, Lyon..."
+              placeholderTextColor={Colors.onSurfaceVariant}
+              autoCapitalize="words"
+            />
+
+            <TouchableOpacity
+              style={[styles.saveButton, saving && { opacity: 0.6 }]}
+              onPress={handleSave}
+              disabled={saving}
+            >
+              {saving
+                ? <ActivityIndicator color={Colors.onPrimary} />
+                : <Text style={styles.saveButtonText}>Enregistrer</Text>
+              }
+            </TouchableOpacity>
+          </View>
+        </KeyboardAvoidingView>
+      </Modal>
+
+      {/* ---- Add Pet Modal ---- */}
+      <Modal visible={addPetVisible} animationType="slide" transparent>
+        <KeyboardAvoidingView
+          style={styles.modalOverlay}
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        >
+          <View style={styles.modalSheet}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Ajouter un animal</Text>
+              <TouchableOpacity onPress={() => setAddPetVisible(false)}>
+                <MaterialIcons name="close" size={24} color={Colors.onSurfaceVariant} />
+              </TouchableOpacity>
+            </View>
+
+            <Text style={styles.fieldLabel}>Nom *</Text>
+            <TextInput
+              style={styles.fieldInput}
+              value={petName}
+              onChangeText={setPetName}
+              placeholder="Rex, Luna..."
+              placeholderTextColor={Colors.onSurfaceVariant}
+              autoCapitalize="words"
+              autoFocus
+            />
+
+            <Text style={styles.fieldLabel}>Espèce</Text>
+            <View style={{ flexDirection: 'row', gap: 10, marginBottom: 14 }}>
+              {[{ label: 'Chien 🐶', value: 'dog' }, { label: 'Chat 🐱', value: 'cat' }, { label: 'Autre', value: 'other' }].map(opt => (
+                <TouchableOpacity
+                  key={opt.value}
+                  onPress={() => setPetSpecies(opt.value)}
+                  style={[styles.fieldInput, { flex: 1, alignItems: 'center', justifyContent: 'center',
+                    borderColor: petSpecies === opt.value ? Colors.primary : Colors.outlineVariant,
+                    borderWidth: petSpecies === opt.value ? 2 : 1 }]}
+                >
+                  <Text style={{ color: petSpecies === opt.value ? Colors.primary : Colors.onSurfaceVariant, fontWeight: '600' }}>{opt.label}</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+
+            <Text style={styles.fieldLabel}>Race</Text>
+            <TextInput
+              style={styles.fieldInput}
+              value={petBreed}
+              onChangeText={setPetBreed}
+              placeholder="Golden Retriever, Berger Australien..."
+              placeholderTextColor={Colors.onSurfaceVariant}
+              autoCapitalize="words"
+            />
+
+            <TouchableOpacity
+              style={[styles.saveButton, petSaving && { opacity: 0.6 }]}
+              onPress={handleAddPet}
+              disabled={petSaving}
+            >
+              {petSaving
+                ? <ActivityIndicator color={Colors.onPrimary} />
+                : <Text style={styles.saveButtonText}>Ajouter</Text>
+              }
+            </TouchableOpacity>
+          </View>
+        </KeyboardAvoidingView>
+      </Modal>
+
+      {/* ---- Become Sitter Modal ---- */}
+      <Modal visible={sitterModalVisible} animationType="slide" transparent>
+        <KeyboardAvoidingView
+          style={styles.modalOverlay}
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        >
+          <View style={styles.modalSheet}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Devenir gardien</Text>
+              <TouchableOpacity onPress={() => setSitterModalVisible(false)}>
+                <MaterialIcons name="close" size={24} color={Colors.onSurfaceVariant} />
+              </TouchableOpacity>
+            </View>
+
+            <Text style={styles.fieldLabel}>Tarif par jour (€) *</Text>
+            <TextInput
+              style={styles.fieldInput}
+              value={sitterPrice}
+              onChangeText={setSitterPrice}
+              placeholder="25"
+              placeholderTextColor={Colors.onSurfaceVariant}
+              keyboardType="numeric"
+              autoFocus
+            />
+
+            <Text style={styles.fieldLabel}>Ville / Zone</Text>
+            <TextInput
+              style={styles.fieldInput}
+              value={sitterLocation}
+              onChangeText={setSitterLocation}
+              placeholder="Paris 15ème, Lyon..."
+              placeholderTextColor={Colors.onSurfaceVariant}
+              autoCapitalize="words"
+            />
+
+            <Text style={styles.fieldLabel}>Présentation</Text>
+            <TextInput
+              style={[styles.fieldInput, { height: 80, textAlignVertical: 'top' }]}
+              value={sitterDesc}
+              onChangeText={setSitterDesc}
+              placeholder="Décrivez votre expérience avec les animaux..."
+              placeholderTextColor={Colors.onSurfaceVariant}
+              multiline
+              numberOfLines={3}
+            />
+
+            <TouchableOpacity
+              style={[styles.saveButton, sitterSaving && { opacity: 0.6 }]}
+              onPress={handleBecomeSitter}
+              disabled={sitterSaving}
+            >
+              {sitterSaving
+                ? <ActivityIndicator color={Colors.onPrimary} />
+                : <Text style={styles.saveButtonText}>Créer mon profil gardien</Text>
+              }
+            </TouchableOpacity>
+          </View>
+        </KeyboardAvoidingView>
+      </Modal>
     </SafeAreaView>
   );
 };
@@ -188,14 +525,44 @@ const styles = StyleSheet.create({
     width: 80,
     height: 80,
     borderRadius: 40,
-    marginBottom: 12,
     borderWidth: 3,
     borderColor: Colors.primaryContainer,
+  },
+  avatarContainer: {
+    marginBottom: 12,
+    position: 'relative',
+    alignSelf: 'center',
+  },
+  avatarPlaceholder: {
+    backgroundColor: Colors.surfaceContainerHigh,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  avatarOverlay: {
+    position: 'absolute',
+    bottom: 0,
+    right: 0,
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+    backgroundColor: Colors.primary,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 2,
+    borderColor: Colors.surface,
   },
   userName: {
     fontSize: 22,
     fontWeight: '800',
     color: Colors.onSurface,
+  },
+  userNameRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  editNameBtn: {
+    padding: 4,
   },
   userEmail: {
     fontSize: 14,
@@ -362,6 +729,59 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: '600',
     color: Colors.error,
+  },
+  modalOverlay: {
+    flex: 1,
+    justifyContent: 'flex-end',
+    backgroundColor: 'rgba(0,0,0,0.45)',
+  },
+  modalSheet: {
+    backgroundColor: Colors.surface,
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    paddingHorizontal: 20,
+    paddingTop: 20,
+    paddingBottom: 36,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: Colors.onSurface,
+  },
+  fieldLabel: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: Colors.onSurfaceVariant,
+    marginBottom: 6,
+    marginTop: 14,
+  },
+  fieldInput: {
+    backgroundColor: Colors.surfaceContainerLow,
+    borderRadius: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    fontSize: 15,
+    color: Colors.onSurface,
+    borderWidth: 1,
+    borderColor: Colors.outlineVariant,
+  },
+  saveButton: {
+    backgroundColor: Colors.primary,
+    borderRadius: 14,
+    paddingVertical: 14,
+    alignItems: 'center',
+    marginTop: 24,
+  },
+  saveButtonText: {
+    color: Colors.onPrimary,
+    fontSize: 16,
+    fontWeight: '700',
   },
 });
 

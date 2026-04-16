@@ -1,8 +1,33 @@
 import { createContext, useContext, useEffect, useMemo, useState } from 'react';
-import { getProfile } from '../services/api';
+import { getProfile, updateProfile } from '../services/api';
 import { getCurrentSession, onAuthStateChange, signIn, signOut, signUp } from '../services/auth';
 
 const AuthContext = createContext(null);
+
+// Derive a display name from email: "jean.dupont@gmail.com" → "Jean"
+function nameFromEmail(email) {
+  if (!email) return '';
+  const local = email.split('@')[0];          // "jean.dupont"
+  const first = local.split(/[._\-+]/)[0];   // "jean"
+  return first.charAt(0).toUpperCase() + first.slice(1).toLowerCase();
+}
+
+async function loadProfile(userId, userEmail) {
+  try {
+    const p = await getProfile(userId);
+    // Auto-init full_name if missing
+    if (!p.full_name) {
+      const derived = nameFromEmail(userEmail);
+      if (derived) {
+        const updated = await updateProfile(userId, { full_name: derived });
+        return updated;
+      }
+    }
+    return p;
+  } catch {
+    return null;
+  }
+}
 
 export function AuthProvider({ children }) {
   const [session, setSession] = useState(null);
@@ -11,10 +36,11 @@ export function AuthProvider({ children }) {
 
   useEffect(() => {
     // Récupérer la session au démarrage
-    getCurrentSession().then((s) => {
+    getCurrentSession().then(async (s) => {
       setSession(s);
       if (s?.user) {
-        getProfile(s.user.id).then(setProfile).catch(() => {});
+        const p = await loadProfile(s.user.id, s.user.email);
+        setProfile(p);
       }
       setLoading(false);
     }).catch(() => setLoading(false));
@@ -23,10 +49,8 @@ export function AuthProvider({ children }) {
     const subscription = onAuthStateChange(async (newSession) => {
       setSession(newSession);
       if (newSession?.user) {
-        try {
-          const p = await getProfile(newSession.user.id);
-          setProfile(p);
-        } catch { /* profile pas encore créé */ }
+        const p = await loadProfile(newSession.user.id, newSession.user.email);
+        setProfile(p);
       } else {
         setProfile(null);
       }
@@ -60,7 +84,7 @@ export function AuthProvider({ children }) {
 
     refreshProfile: async () => {
       if (session?.user) {
-        const p = await getProfile(session.user.id);
+        const p = await loadProfile(session.user.id, session.user.email);
         setProfile(p);
       }
     },
