@@ -1,3 +1,4 @@
+import { decode } from 'base64-arraybuffer';
 import { supabase } from '../lib/supabase';
 
 // ========================
@@ -430,14 +431,13 @@ export async function toggleLike(userId, imageId) {
 // ========================
 // IMAGE UPLOAD
 // ========================
-export async function uploadImage(bucket, userId, uri) {
+export async function uploadImage(bucket, userId, base64) {
   const fileName = `${userId}/${Date.now()}.jpg`;
-  const response = await fetch(uri);
-  const blob = await response.blob();
+  const arrayBuffer = decode(base64);
 
   const { data, error } = await supabase.storage
     .from(bucket)
-    .upload(fileName, blob, { contentType: 'image/jpeg' });
+    .upload(fileName, arrayBuffer, { contentType: 'image/jpeg', upsert: true });
   if (error) throw error;
 
   const { data: { publicUrl } } = supabase.storage

@@ -130,16 +130,21 @@ export const UserProfileScreen = ({ navigation }) => {
       return;
     }
     const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaType.Images,
+      mediaTypes: ['images'],
       allowsEditing: true,
       aspect: [1, 1],
       quality: 0.7,
+      base64: true,
     });
     if (result.canceled) return;
-    const uri = result.assets[0].uri;
+    const asset = result.assets[0];
+    if (!asset.base64) {
+      Alert.alert('Erreur', 'Impossible de lire l\'image.');
+      return;
+    }
     setAvatarUploading(true);
     try {
-      const publicUrl = await uploadImage('avatars', user.id, uri);
+      const publicUrl = await uploadImage('avatars', user.id, asset.base64);
       await updateProfile(user.id, { avatar_url: publicUrl });
       await refreshProfile();
     } catch (err) {
