@@ -1,12 +1,18 @@
 import { MaterialIcons } from '@expo/vector-icons';
+import * as ImagePicker from 'expo-image-picker';
 import { useCallback, useEffect, useState } from 'react';
 import {
     ActivityIndicator,
+    Alert,
     Dimensions,
     FlatList,
     Image,
+    KeyboardAvoidingView,
+    Modal,
+    Platform,
     StyleSheet,
     Text,
+    TextInput,
     TouchableOpacity,
     View
 } from 'react-native';
@@ -14,7 +20,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Header } from '../components';
 import Colors from '../constants/colors';
 import { useAuth } from '../contexts/AuthContext';
-import { getFeedPosts, toggleLike } from '../services/api';
+import { createFeedPost, getFeedPosts, toggleLike, uploadImage } from '../services/api';
 
 const { width } = Dimensions.get('window');
 
@@ -97,6 +103,50 @@ export const HomeScreen = ({ navigation }) => {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
+  // Create post state
+  const [postModalVisible, setPostModalVisible] = useState(false);
+  const [postCaption, setPostCaption] = useState('');
+  const [postImageBase64, setPostImageBase64] = useState(null);
+  const [postImageUri, setPostImageUri] = useState(null);
+  const [postSubmitting, setPostSubmitting] = useState(false);
+
+  const openPostModal = () => {
+    setPostCaption('');
+    setPostImageBase64(null);
+    setPostImageUri(null);
+    setPostModalVisible(true);
+  };
+
+  const handlePickPostImage = async () => {
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ['images'],
+      quality: 0.7,
+      base64: true,
+    });
+    if (!result.canceled && result.assets?.[0]) {
+      setPostImageUri(result.assets[0].uri);
+      setPostImageBase64(result.assets[0].base64);
+    }
+  };
+
+  const handleCreatePost = async () => {
+    if (!postImageBase64) {
+      Alert.alert('Photo requise', 'Veuillez sélectionner une photo.');
+      return;
+    }
+    setPostSubmitting(true);
+    try {
+      const imageUrl = await uploadImage('gallery', user.id, postImageBase64);
+      await createFeedPost({ userId: user.id, imageUrl, caption: postCaption.trim() });
+      setPostModalVisible(false);
+      fetchPosts();
+    } catch (err) {
+      Alert.alert('Erreur', err.message || 'Impossible de publier.');
+    } finally {
+      setPostSubmitting(false);
+    }
+  };
+
   const fetchPosts = useCallback(async () => {
     try {
       const data = await getFeedPosts();
@@ -120,6 +170,57 @@ export const HomeScreen = ({ navigation }) => {
   return (
     <SafeAreaView style={styles.container}>
       <Header onNotificationPress={() => navigation.navigate('Notifications')} />
+
+      {/* Create Post Modal */}
+      <Modal visible={postModalVisible} transparent animationType="slide" onRequestClose={() => setPostModalVisible(false)}>
+        <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+          <View style={styles.modalOverlay}>
+            <View style={styles.modalSheet}>
+              <View style={styles.modalHeader}>
+                <Text style={styles.modalTitle}>Nouvelle publication</Text>
+                <TouchableOpacity onPress={() => setPostModalVisible(false)}>
+                  <MaterialIcons name="close" size={24} color={Colors.onSurface} />
+                </TouchableOpacity>
+              </View>
+
+              {/* Image picker */}
+              <TouchableOpacity style={styles.imagePicker} onPress={handlePickPostImage} activeOpacity={0.7}>
+                {postImageUri ? (
+                  <Image source={{ uri: postImageUri }} style={styles.imagePreview} resizeMode="cover" />
+                ) : (
+                  <View style={styles.imagePickerPlaceholder}>
+                    <MaterialIcons name="add-photo-alternate" size={40} color={Colors.onSurfaceVariant} />
+                    <Text style={styles.imagePickerText}>Choisir une photo</Text>
+                  </View>
+                )}
+              </TouchableOpacity>
+
+              {/* Caption */}
+              <TextInput
+                style={styles.captionInput}
+                placeholder="Écrivez une légende..."
+                placeholderTextColor={Colors.outlineVariant}
+                value={postCaption}
+                onChangeText={setPostCaption}
+                multiline
+                maxLength={500}
+              />
+
+              <TouchableOpacity
+                style={[styles.publishBtn, (!postImageBase64 || postSubmitting) && styles.publishBtnDisabled]}
+                onPress={handleCreatePost}
+                disabled={!postImageBase64 || postSubmitting}
+              >
+                {postSubmitting
+                  ? <ActivityIndicator color={Colors.onPrimary} />
+                  : <Text style={styles.publishBtnText}>Publier</Text>
+                }
+              </TouchableOpacity>
+            </View>
+          </View>
+        </KeyboardAvoidingView>
+      </Modal>
+
       {loading ? (
         <ActivityIndicator size="large" color={Colors.primary} style={{ flex: 1 }} />
       ) : (
@@ -147,6 +248,11 @@ export const HomeScreen = ({ navigation }) => {
           onRefresh={() => { setRefreshing(true); fetchPosts(); }}
         />
       )}
+
+      {/* FAB */}
+      <TouchableOpacity style={styles.fab} onPress={openPostModal} activeOpacity={0.85}>
+        <MaterialIcons name="add" size={28} color={Colors.onPrimary} />
+      </TouchableOpacity>
     </SafeAreaView>
   );
 };
@@ -275,6 +381,34 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: Colors.onSurfaceVariant,
   },
+  fab: {
+    position: 'absolute',
+    bottom: 24,
+    right: 20,
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: Colors.primary,
+    justifyContent: 'center',
+    alignItems: 'center',
+    elevation: 6,
+    shadowColor: Colors.shadow,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.25,
+    shadowRadius: 8,
+  },
+  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },
+  modalSheet: { backgroundColor: Colors.surface, borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 20, paddingBottom: 36 },
+  modalHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 },
+  modalTitle: { fontSize: 17, fontWeight: '700', color: Colors.onSurface },
+  imagePicker: { borderRadius: 16, overflow: 'hidden', marginBottom: 14, backgroundColor: Colors.surfaceContainerLow, height: 180 },
+  imagePickerPlaceholder: { flex: 1, justifyContent: 'center', alignItems: 'center', gap: 8 },
+  imagePickerText: { fontSize: 13, color: Colors.onSurfaceVariant },
+  imagePreview: { width: '100%', height: '100%' },
+  captionInput: { backgroundColor: Colors.surfaceContainerLow, borderRadius: 12, padding: 14, fontSize: 14, color: Colors.onSurface, minHeight: 80, textAlignVertical: 'top', marginBottom: 14 },
+  publishBtn: { backgroundColor: Colors.primary, borderRadius: 14, paddingVertical: 14, alignItems: 'center' },
+  publishBtnDisabled: { opacity: 0.5 },
+  publishBtnText: { fontSize: 15, fontWeight: '700', color: Colors.onPrimary },
 });
 
 export default HomeScreen;

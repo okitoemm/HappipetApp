@@ -2,10 +2,12 @@ import { MaterialIcons } from '@expo/vector-icons';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { NavigationContainer } from '@react-navigation/native';
 import { createStackNavigator } from '@react-navigation/stack';
+import { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, View } from 'react-native';
 
 import Colors from '../constants/colors';
 import { useAuth } from '../contexts/AuthContext';
+import { getMyNotifications } from '../services/api';
 import {
     BookingConfirmationScreen,
     BookingScreen,
@@ -103,7 +105,24 @@ const ProfileTabScreen = () => {
 };
 
 export const Navigation = () => {
-  const { isLoggedIn, loading } = useAuth();
+  const { isLoggedIn, loading, user } = useAuth();
+  const [unreadCount, setUnreadCount] = useState(0);
+  const intervalRef = useRef(null);
+
+  useEffect(() => {
+    if (!isLoggedIn || !user) { setUnreadCount(0); return; }
+
+    const fetchUnread = async () => {
+      try {
+        const notifs = await getMyNotifications(user.id);
+        setUnreadCount(notifs.filter(n => !n.read).length);
+      } catch { /* silent */ }
+    };
+
+    fetchUnread();
+    intervalRef.current = setInterval(fetchUnread, 30000); // rafraîchit toutes les 30s
+    return () => clearInterval(intervalRef.current);
+  }, [isLoggedIn, user]);
 
   if (loading) {
     return (
@@ -157,7 +176,15 @@ export const Navigation = () => {
           <Tab.Screen name="Home" component={HomeStack} options={{ tabBarLabel: 'Accueil' }} />
           <Tab.Screen name="Search" component={SearchStack} options={{ tabBarLabel: 'Recherche' }} />
           <Tab.Screen name="Messages" component={MessagesStack} options={{ tabBarLabel: 'Messages' }} />
-          <Tab.Screen name="ProfileTab" component={ProfileTabScreen} options={{ tabBarLabel: 'Profil' }} />
+          <Tab.Screen
+            name="ProfileTab"
+            component={ProfileTabScreen}
+            options={{
+              tabBarLabel: 'Profil',
+              tabBarBadge: unreadCount > 0 ? unreadCount : undefined,
+              tabBarBadgeStyle: { backgroundColor: Colors.error, color: '#fff', fontSize: 10 },
+            }}
+          />
         </Tab.Navigator>
       ) : (
         <AuthStack />

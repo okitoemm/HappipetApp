@@ -5,15 +5,19 @@ import {
   Alert,
   FlatList,
   Image,
+  KeyboardAvoidingView,
+  Modal,
+  Platform,
   StyleSheet,
   Text,
+  TextInput,
   TouchableOpacity,
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Colors from '../constants/colors';
 import { useAuth } from '../contexts/AuthContext';
-import { getMyBookings, updateBookingStatus } from '../services/api';
+import { createReview, getMyBookings, updateBookingStatus } from '../services/api';
 
 const STATUS_LABELS = { pending: 'En attente', confirmed: 'Confirmée', completed: 'Terminée', cancelled: 'Annulée' };
 const STATUS_TAB = { pending: 'upcoming', confirmed: 'upcoming', completed: 'completed', cancelled: 'cancelled' };
@@ -75,6 +79,12 @@ export const MyBookingsScreen = ({ navigation }) => {
   const [bookings, setBookings] = useState([]);
   const [loading, setLoading] = useState(true);
 
+  // Review modal
+  const [reviewBooking, setReviewBooking] = useState(null);
+  const [reviewRating, setReviewRating] = useState(5);
+  const [reviewComment, setReviewComment] = useState('');
+  const [reviewSaving, setReviewSaving] = useState(false);
+
   const fetchBookings = useCallback(async () => {
     if (!user) return;
     try {
@@ -101,6 +111,32 @@ export const MyBookingsScreen = ({ navigation }) => {
         }
       }},
     ]);
+  };
+
+  const openReview = (booking) => {
+    setReviewBooking(booking);
+    setReviewRating(5);
+    setReviewComment('');
+  };
+
+  const handleSubmitReview = async () => {
+    if (!reviewBooking) return;
+    setReviewSaving(true);
+    try {
+      await createReview({
+        booking_id:  reviewBooking.id,
+        reviewer_id: user.id,
+        sitter_id:   reviewBooking.sitter?.id,
+        rating:      reviewRating,
+        comment:     reviewComment.trim() || null,
+      });
+      setReviewBooking(null);
+      Alert.alert('Merci !', 'Votre avis a été publié.');
+    } catch (err) {
+      Alert.alert('Erreur', err.message || 'Impossible de publier l\'avis.');
+    } finally {
+      setReviewSaving(false);
+    }
   };
 
   const filtered = activeTab === 'all'
@@ -138,16 +174,27 @@ export const MyBookingsScreen = ({ navigation }) => {
           data={filtered}
           keyExtractor={item => item.id}
           renderItem={({ item }) => (
-            <BookingCard booking={item} onPress={() => {
-              Alert.alert(
-                item.sitterName,
-                `Animal : ${item.pet}\nDates : ${item.dates}\nTotal : ${item.total}\nStatut : ${item.statusLabel}`,
-                [
-                  { text: 'Fermer', style: 'cancel' },
-                  ...(item.statusTab === 'upcoming' ? [{ text: 'Annuler', style: 'destructive', onPress: () => handleCancel(item) }] : []),
-                ]
-              );
-            }} />
+            <View>
+              <BookingCard booking={item} onPress={() => {
+                Alert.alert(
+                  item.sitterName,
+                  `Animal : ${item.pet}\nDates : ${item.dates}\nTotal : ${item.total}\nStatut : ${item.statusLabel}`,
+                  [
+                    { text: 'Fermer', style: 'cancel' },
+                    ...(item.statusTab === 'upcoming' ? [{ text: 'Annuler', style: 'destructive', onPress: () => handleCancel(item) }] : []),
+                  ]
+                );
+              }} />
+              {item.statusTab === 'completed' && (
+                <TouchableOpacity
+                  style={styles.reviewButton}
+                  onPress={() => openReview(item)}
+                >
+                  <MaterialIcons name="star" size={16} color={Colors.tertiary} />
+                  <Text style={styles.reviewButtonText}>Laisser un avis</Text>
+                </TouchableOpacity>
+              )}
+            </View>
           )}
           contentContainerStyle={styles.list}
           showsVerticalScrollIndicator={false}
@@ -161,6 +208,60 @@ export const MyBookingsScreen = ({ navigation }) => {
           </Text>
         </View>
       )}
+
+      {/* ---- Review Modal ---- */}
+      <Modal visible={!!reviewBooking} animationType="slide" transparent>
+        <KeyboardAvoidingView
+          style={styles.modalOverlay}
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        >
+          <View style={styles.modalSheet}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Laisser un avis</Text>
+              <TouchableOpacity onPress={() => setReviewBooking(null)}>
+                <MaterialIcons name="close" size={24} color={Colors.onSurfaceVariant} />
+              </TouchableOpacity>
+            </View>
+
+            <Text style={styles.modalSubtitle}>{reviewBooking?.sitterName}</Text>
+
+            {/* Stars */}
+            <View style={styles.starsRow}>
+              {[1,2,3,4,5].map(star => (
+                <TouchableOpacity key={star} onPress={() => setReviewRating(star)}>
+                  <MaterialIcons
+                    name={star <= reviewRating ? 'star' : 'star-border'}
+                    size={36}
+                    color={Colors.tertiary}
+                  />
+                </TouchableOpacity>
+              ))}
+            </View>
+
+            <TextInput
+              style={styles.commentInput}
+              value={reviewComment}
+              onChangeText={setReviewComment}
+              placeholder="Partagez votre expérience (optionnel)..."
+              placeholderTextColor={Colors.onSurfaceVariant}
+              multiline
+              numberOfLines={4}
+              textAlignVertical="top"
+            />
+
+            <TouchableOpacity
+              style={[styles.submitButton, reviewSaving && { opacity: 0.6 }]}
+              onPress={handleSubmitReview}
+              disabled={reviewSaving}
+            >
+              {reviewSaving
+                ? <ActivityIndicator color={Colors.onPrimary} />
+                : <Text style={styles.submitButtonText}>Publier l'avis</Text>
+              }
+            </TouchableOpacity>
+          </View>
+        </KeyboardAvoidingView>
+      </Modal>
     </SafeAreaView>
   );
 };
@@ -205,6 +306,31 @@ const styles = StyleSheet.create({
   emptyState: { flex: 1, justifyContent: 'center', alignItems: 'center', paddingHorizontal: 40 },
   emptyTitle: { fontSize: 20, fontWeight: '700', color: Colors.onSurface, marginTop: 16 },
   emptySubtitle: { fontSize: 14, color: Colors.onSurfaceVariant, textAlign: 'center', marginTop: 8, lineHeight: 20 },
+  reviewButton: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6,
+    marginHorizontal: 0, marginTop: -4, marginBottom: 12,
+    paddingVertical: 10, borderRadius: 10,
+    backgroundColor: Colors.tertiaryFixed,
+  },
+  reviewButtonText: { fontSize: 13, fontWeight: '700', color: Colors.onTertiaryFixed },
+  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'flex-end' },
+  modalSheet: {
+    backgroundColor: Colors.surface, borderTopLeftRadius: 24, borderTopRightRadius: 24,
+    padding: 24, paddingBottom: 40,
+  },
+  modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 },
+  modalTitle: { fontSize: 18, fontWeight: '700', color: Colors.onSurface },
+  modalSubtitle: { fontSize: 14, color: Colors.onSurfaceVariant, marginBottom: 16 },
+  starsRow: { flexDirection: 'row', justifyContent: 'center', gap: 8, marginBottom: 20 },
+  commentInput: {
+    borderWidth: 1, borderColor: Colors.outlineVariant, borderRadius: 12,
+    padding: 12, fontSize: 14, color: Colors.onSurface,
+    minHeight: 100, marginBottom: 20,
+  },
+  submitButton: {
+    backgroundColor: Colors.primary, paddingVertical: 14, borderRadius: 14, alignItems: 'center',
+  },
+  submitButtonText: { fontSize: 15, fontWeight: '700', color: Colors.onPrimary },
 });
 
 export default MyBookingsScreen;

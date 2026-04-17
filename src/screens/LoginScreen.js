@@ -15,6 +15,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Colors from '../constants/colors';
 import { useAuth } from '../contexts/AuthContext';
+import { supabase } from '../lib/supabase';
 
 export const LoginScreen = ({ navigation }) => {
   const { signIn } = useAuth();
@@ -33,7 +34,29 @@ export const LoginScreen = ({ navigation }) => {
     try {
       await signIn({ email: email.trim(), password });
     } catch (error) {
-      Alert.alert('Erreur de connexion', error.message || 'Email ou mot de passe incorrect.');
+      const msg = error.message || '';
+      if (msg.toLowerCase().includes('email not confirmed')) {
+        Alert.alert(
+          'Email non confirmé',
+          'Votre adresse email n\'a pas encore été confirmée. Voulez-vous recevoir un nouvel email de confirmation ?',
+          [
+            { text: 'Annuler', style: 'cancel' },
+            {
+              text: 'Renvoyer',
+              onPress: async () => {
+                try {
+                  await supabase.auth.resend({ type: 'signup', email: email.trim() });
+                  Alert.alert('Email envoyé', 'Vérifiez votre boîte mail et cliquez sur le lien de confirmation.');
+                } catch {
+                  Alert.alert('Erreur', 'Impossible d\'envoyer l\'email.');
+                }
+              },
+            },
+          ]
+        );
+      } else {
+        Alert.alert('Erreur de connexion', msg || 'Email ou mot de passe incorrect.');
+      }
     } finally {
       setLoading(false);
     }

@@ -428,6 +428,22 @@ export async function toggleLike(userId, imageId) {
   return true;
 }
 
+export async function createFeedPost({ userId, imageUrl, caption }) {
+  const { data, error } = await supabase
+    .from('gallery_images')
+    .insert({
+      user_id: userId,
+      image_url: imageUrl,
+      caption: caption || null,
+      is_feed_post: true,
+      likes_count: 0,
+    })
+    .select()
+    .single();
+  if (error) throw error;
+  return data;
+}
+
 // ========================
 // IMAGE UPLOAD
 // ========================

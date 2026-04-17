@@ -4,6 +4,8 @@ import {
     ActivityIndicator,
     FlatList,
     Image,
+    Modal,
+    ScrollView,
     StyleSheet,
     Text,
     TextInput,
@@ -13,6 +15,23 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { FilterChip } from '../components';
 import Colors from '../constants/colors';
+
+const WEEK_DAYS = ['Dim', 'Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam'];
+const MONTHS    = ['Jan', 'Fév', 'Mar', 'Avr', 'Mai', 'Jun', 'Jul', 'Aoû', 'Sep', 'Oct', 'Nov', 'Déc'];
+
+function generateSearchDates() {
+  return Array.from({ length: 30 }, (_, i) => {
+    const d = new Date();
+    d.setDate(d.getDate() + i);
+    return {
+      day:   WEEK_DAYS[d.getDay()],
+      date:  d.getDate().toString(),
+      month: MONTHS[d.getMonth()],
+      iso:   d.toISOString().split('T')[0],
+    };
+  });
+}
+const SEARCH_DATES = generateSearchDates();
 import { getSitters } from '../services/api';
 
 const SearchResultCard = ({ sitter, onPress }) => {
@@ -83,6 +102,20 @@ export const SearchScreen = ({ navigation }) => {
   const [sitters, setSitters] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [dateModalVisible, setDateModalVisible] = useState(false);
+  const [searchDates, setSearchDates] = useState([]);
+
+  const toggleSearchDate = (iso) => {
+    setSearchDates(prev =>
+      prev.includes(iso) ? prev.filter(d => d !== iso) : [...prev, iso]
+    );
+  };
+
+  const dateDisplayText = searchDates.length === 0
+    ? 'Ajouter des dates'
+    : searchDates.length === 1
+      ? new Date(searchDates[0]).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })
+      : `${searchDates.length} jours sélectionnés`;
   const filters = ['Prix', "Type d'hébergement", 'Disponibilité', 'Rayon +5km'];
   const animals = ['Chien', 'Chat', 'Autre'];
 
@@ -128,13 +161,18 @@ export const SearchScreen = ({ navigation }) => {
               onSubmitEditing={handleSearch}
             />
           </View>
-          <View style={styles.dateInput}>
+          <TouchableOpacity style={styles.dateInput} onPress={() => setDateModalVisible(true)} activeOpacity={0.7}>
             <MaterialIcons name="event" size={20} color={Colors.primary} />
             <View style={styles.dateInputText}>
               <Text style={styles.dateLabel}>Quand ?</Text>
-              <Text style={styles.dateValue}>Ajouter des dates</Text>
+              <Text style={[styles.dateValue, searchDates.length > 0 && { color: Colors.primary }]}>{dateDisplayText}</Text>
             </View>
-          </View>
+            {searchDates.length > 0 && (
+              <TouchableOpacity onPress={() => setSearchDates([])}>
+                <MaterialIcons name="close" size={18} color={Colors.outline} />
+              </TouchableOpacity>
+            )}
+          </TouchableOpacity>
           <TouchableOpacity style={styles.searchCta} onPress={handleSearch}>
             <MaterialIcons name="search" size={20} color={Colors.onPrimary} />
             <Text style={styles.searchCtaText}>Rechercher</Text>
@@ -189,6 +227,46 @@ export const SearchScreen = ({ navigation }) => {
 
   return (
     <SafeAreaView style={styles.container}>
+      {/* Date Picker Modal */}
+      <Modal visible={dateModalVisible} transparent animationType="slide" onRequestClose={() => setDateModalVisible(false)}>
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalSheet}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Sélectionner des dates</Text>
+              <TouchableOpacity onPress={() => setDateModalVisible(false)}>
+                <MaterialIcons name="close" size={24} color={Colors.onSurface} />
+              </TouchableOpacity>
+            </View>
+            <ScrollView showsVerticalScrollIndicator={false} style={{ maxHeight: 400 }}>
+              <View style={styles.dateGrid}>
+                {SEARCH_DATES.map(d => {
+                  const selected = searchDates.includes(d.iso);
+                  return (
+                    <TouchableOpacity
+                      key={d.iso}
+                      style={[styles.dateGridCard, selected && styles.dateGridCardSelected]}
+                      onPress={() => toggleSearchDate(d.iso)}
+                    >
+                      <Text style={[styles.dateGridDay, selected && styles.dateGridTextSelected]}>{d.day}</Text>
+                      <Text style={[styles.dateGridNumber, selected && styles.dateGridTextSelected]}>{d.date}</Text>
+                      <Text style={[styles.dateGridMonth, selected && styles.dateGridTextSelected]}>{d.month}</Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+            </ScrollView>
+            <TouchableOpacity
+              style={styles.modalConfirm}
+              onPress={() => setDateModalVisible(false)}
+            >
+              <Text style={styles.modalConfirmText}>
+                {searchDates.length === 0 ? 'Ignorer' : `Confirmer (${searchDates.length} jour${searchDates.length > 1 ? 's' : ''})`}
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
       <FlatList
         data={loading || error || sitters.length === 0 ? [] : sitters}
         keyExtractor={(item) => item.id}
@@ -350,6 +428,19 @@ const styles = StyleSheet.create({
     color: Colors.onSurface,
     marginBottom: 4,
   },
+  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },
+  modalSheet: { backgroundColor: Colors.surface, borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 20, paddingBottom: 36 },
+  modalHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 },
+  modalTitle: { fontSize: 17, fontWeight: '700', color: Colors.onSurface },
+  dateGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, paddingVertical: 8 },
+  dateGridCard: { width: '13%', minWidth: 44, alignItems: 'center', paddingVertical: 10, paddingHorizontal: 4, borderRadius: 12, borderWidth: 1.5, borderColor: Colors.outline + '40', backgroundColor: Colors.surfaceContainerLowest },
+  dateGridCardSelected: { borderColor: Colors.primary, backgroundColor: Colors.primaryContainer + '40' },
+  dateGridDay: { fontSize: 9, color: Colors.onSurfaceVariant, fontWeight: '600', textTransform: 'uppercase' },
+  dateGridNumber: { fontSize: 16, fontWeight: '800', color: Colors.onSurface, marginVertical: 2 },
+  dateGridMonth: { fontSize: 9, color: Colors.onSurfaceVariant },
+  dateGridTextSelected: { color: Colors.primary },
+  modalConfirm: { marginTop: 16, backgroundColor: Colors.primary, borderRadius: 14, paddingVertical: 14, alignItems: 'center' },
+  modalConfirmText: { fontSize: 15, fontWeight: '700', color: Colors.onPrimary },
   resultsSubtitle: {
     fontSize: 14,
     color: Colors.onSurfaceVariant,
