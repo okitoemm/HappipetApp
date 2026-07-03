@@ -4,6 +4,7 @@ import {
     ActivityIndicator,
     Alert,
     KeyboardAvoidingView,
+    Linking,
     Platform,
     ScrollView,
     StyleSheet,
@@ -144,8 +145,8 @@ export const RegisterScreen = ({ navigation }) => {
           {/* Terms */}
           <Text style={styles.termsText}>
             En vous inscrivant, vous acceptez nos{' '}
-            <Text style={styles.termsLink}>Conditions d'utilisation</Text> et notre{' '}
-            <Text style={styles.termsLink}>Politique de confidentialité</Text>.
+            <Text style={styles.termsLink} onPress={() => Linking.openURL('https://happipet.fr/cgu')}>Conditions d'utilisation</Text> et notre{' '}
+            <Text style={styles.termsLink} onPress={() => Linking.openURL('https://happipet.fr/confidentialite')}>Politique de confidentialité</Text>.
           </Text>
 
           {/* Login link */}

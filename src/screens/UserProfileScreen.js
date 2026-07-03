@@ -51,7 +51,7 @@ const PetCard = ({ pet }) => (
 );
 
 export const UserProfileScreen = ({ navigation }) => {
-  const { user, profile, signOut, refreshProfile } = useAuth();
+  const { user, profile, signOut, refreshProfile, isSitter, sitterProfile, refreshSitterProfile } = useAuth();
   const [pets, setPets] = useState([]);
   const [stats, setStats] = useState({ bookings: 0, reviews: 0, favorites: 0 });
   const [avatarUploading, setAvatarUploading] = useState(false);
@@ -192,7 +192,11 @@ export const UserProfileScreen = ({ navigation }) => {
         location_text: sitterLocation.trim() || profile?.city || '',
       });
       setSitterModalVisible(false);
-      Alert.alert('Profil créé !', 'Votre profil de gardien est maintenant visible dans les recherches.');
+      await refreshSitterProfile();
+      const msg = isSitter
+        ? 'Votre profil gardien a été mis à jour.'
+        : 'Votre profil de gardien est maintenant visible dans les recherches !';
+      Alert.alert(isSitter ? 'Profil mis à jour !' : 'Profil créé !', msg);
     } catch (err) {
       Alert.alert('Erreur', err.message || 'Impossible de créer le profil gardien.');
     } finally {
@@ -239,6 +243,12 @@ export const UserProfileScreen = ({ navigation }) => {
             </TouchableOpacity>
           </View>
           <Text style={styles.userEmail}>{user?.email}</Text>
+          {isSitter && (
+            <View style={styles.sitterBadge}>
+              <MaterialIcons name="verified" size={14} color={Colors.onPrimary} />
+              <Text style={styles.sitterBadgeText}>Gardien certifié</Text>
+            </View>
+          )}
           {memberSince ? <Text style={styles.memberSince}>Membre depuis {memberSince}</Text> : null}
 
           {/* Stats */}
@@ -285,12 +295,32 @@ export const UserProfileScreen = ({ navigation }) => {
           <MenuItem icon="favorite" label="Favoris" color={Colors.error} onPress={() => navigation.navigate('Favorites')} />
           <MenuItem icon="notifications" label="Notifications" color={Colors.secondary} onPress={() => navigation.navigate('Notifications')} />
           <MenuItem icon="star" label="Mes avis" color={Colors.tertiary} onPress={() => Alert.alert('Mes avis', 'Cette fonctionnalité sera disponible prochainement.')} />
-          <MenuItem icon="pets" label="Devenir gardien" color={Colors.primary} onPress={() => {
-            setSitterDesc(profile?.bio || '');
-            setSitterLocation(profile?.city || '');
-            setSitterPrice('');
-            setSitterModalVisible(true);
-          }} />
+          {isSitter ? (
+            <MenuItem
+              icon="house"
+              label="Mon profil gardien"
+              value={sitterProfile?.price_per_day ? `${sitterProfile.price_per_day}€/jour` : undefined}
+              color={Colors.primary}
+              onPress={() => {
+                setSitterDesc(sitterProfile?.description || '');
+                setSitterLocation(sitterProfile?.location_text || profile?.city || '');
+                setSitterPrice(sitterProfile?.price_per_day?.toString() || '');
+                setSitterModalVisible(true);
+              }}
+            />
+          ) : (
+            <MenuItem
+              icon="pets"
+              label="Devenir gardien"
+              color={Colors.secondary}
+              onPress={() => {
+                setSitterDesc(profile?.bio || '');
+                setSitterLocation(profile?.city || '');
+                setSitterPrice('');
+                setSitterModalVisible(true);
+              }}
+            />
+          )}
         </View>
 
         <View style={styles.menuSection}>
@@ -430,7 +460,7 @@ export const UserProfileScreen = ({ navigation }) => {
         </KeyboardAvoidingView>
       </Modal>
 
-      {/* ---- Become Sitter Modal ---- */}
+      {/* ---- Become Sitter / Edit Sitter Modal ---- */}
       <Modal visible={sitterModalVisible} animationType="slide" transparent>
         <KeyboardAvoidingView
           style={styles.modalOverlay}
@@ -438,7 +468,7 @@ export const UserProfileScreen = ({ navigation }) => {
         >
           <View style={styles.modalSheet}>
             <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Devenir gardien</Text>
+              <Text style={styles.modalTitle}>{isSitter ? 'Mon profil gardien' : 'Devenir gardien'}</Text>
               <TouchableOpacity onPress={() => setSitterModalVisible(false)}>
                 <MaterialIcons name="close" size={24} color={Colors.onSurfaceVariant} />
               </TouchableOpacity>
@@ -483,7 +513,7 @@ export const UserProfileScreen = ({ navigation }) => {
             >
               {sitterSaving
                 ? <ActivityIndicator color={Colors.onPrimary} />
-                : <Text style={styles.saveButtonText}>Créer mon profil gardien</Text>
+                : <Text style={styles.saveButtonText}>{isSitter ? 'Mettre à jour' : 'Créer mon profil gardien'}</Text>
               }
             </TouchableOpacity>
           </View>
@@ -578,6 +608,21 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: Colors.onSurfaceVariant,
     marginTop: 4,
+  },
+  sitterBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: Colors.primary,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 20,
+    marginTop: 6,
+  },
+  sitterBadgeText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: Colors.onPrimary,
   },
   statsRow: {
     flexDirection: 'row',

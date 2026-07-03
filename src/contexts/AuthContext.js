@@ -1,6 +1,7 @@
 import { createContext, useContext, useEffect, useMemo, useState } from 'react';
-import { getProfile, updateProfile } from '../services/api';
+import { getProfile, getSitterByUserId, updateProfile } from '../services/api';
 import { getCurrentSession, onAuthStateChange, signIn, signOut, signUp } from '../services/auth';
+import { registerForPushNotifications } from '../services/pushNotifications';
 
 const AuthContext = createContext(null);
 
@@ -32,15 +33,25 @@ async function loadProfile(userId, userEmail) {
 export function AuthProvider({ children }) {
   const [session, setSession] = useState(null);
   const [profile, setProfile] = useState(null);
+  const [sitterProfile, setSitterProfile] = useState(null);
   const [loading, setLoading] = useState(true);
+
+  const loadAll = async (userId, userEmail) => {
+    const [p, sp] = await Promise.all([
+      loadProfile(userId, userEmail),
+      getSitterByUserId(userId).catch(() => null),
+    ]);
+    setProfile(p);
+    setSitterProfile(sp);
+    return p;
+  };
 
   useEffect(() => {
     // Récupérer la session au démarrage
     getCurrentSession().then(async (s) => {
       setSession(s);
       if (s?.user) {
-        const p = await loadProfile(s.user.id, s.user.email);
-        setProfile(p);
+        await loadAll(s.user.id, s.user.email);
       }
       setLoading(false);
     }).catch(() => setLoading(false));
@@ -49,10 +60,11 @@ export function AuthProvider({ children }) {
     const subscription = onAuthStateChange(async (newSession) => {
       setSession(newSession);
       if (newSession?.user) {
-        const p = await loadProfile(newSession.user.id, newSession.user.email);
-        setProfile(p);
+        await loadAll(newSession.user.id, newSession.user.email);
+        registerForPushNotifications(newSession.user.id).catch(() => {});
       } else {
         setProfile(null);
+        setSitterProfile(null);
       }
     });
 
@@ -63,6 +75,8 @@ export function AuthProvider({ children }) {
     session,
     user: session?.user ?? null,
     profile,
+    sitterProfile,
+    isSitter: !!sitterProfile,
     loading,
     isLoggedIn: !!session?.user,
 
@@ -80,6 +94,7 @@ export function AuthProvider({ children }) {
       await signOut();
       setSession(null);
       setProfile(null);
+      setSitterProfile(null);
     },
 
     refreshProfile: async () => {
@@ -88,7 +103,14 @@ export function AuthProvider({ children }) {
         setProfile(p);
       }
     },
-  }), [session, profile, loading]);
+
+    refreshSitterProfile: async () => {
+      if (session?.user) {
+        const sp = await getSitterByUserId(session.user.id).catch(() => null);
+        setSitterProfile(sp);
+      }
+    },
+  }), [session, profile, sitterProfile, loading]);
 
   return (
     <AuthContext.Provider value={value}>

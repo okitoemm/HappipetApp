@@ -2,6 +2,11 @@
 
 Happipet est une application mobile qui met en relation des propriétaires de chiens avec des dogsitters qualifiés pour la garde d'animaux.
 
+Event dispalying
+Booking dog Sitting
+Display ads
+
+
 ## Architecture du Projet
 
 ```

@@ -66,9 +66,9 @@ export async function getSitterByUserId(userId) {
     .from('sitter_profiles')
     .select('*')
     .eq('user_id', userId)
-    .single();
+    .maybeSingle();
   if (error) throw error;
-  return data;
+  return data; // null if not a sitter
 }
 
 export async function upsertSitterProfile(userId, updates) {

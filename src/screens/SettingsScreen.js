@@ -4,6 +4,7 @@ import {
     ActivityIndicator,
     Alert,
     KeyboardAvoidingView,
+    Linking,
     Modal,
     Platform,
     ScrollView,
@@ -94,7 +95,48 @@ export const SettingsScreen = ({ navigation }) => {
     }
   };
 
-  // ---- Password Reset ----
+  // ---- Delete Account ----
+  const [deletingAccount, setDeletingAccount] = useState(false);
+
+  const handleDeleteAccount = () => {
+    Alert.alert(
+      'Supprimer mon compte',
+      'Cette action est irréversible. Toutes vos données (profil, réservations, messages) seront supprimées définitivement.',
+      [
+        { text: 'Annuler', style: 'cancel' },
+        {
+          text: 'Supprimer',
+          style: 'destructive',
+          onPress: () => {
+            Alert.alert(
+              'Confirmation finale',
+              'Tapez SUPPRIMER pour confirmer.',
+              [
+                { text: 'Annuler', style: 'cancel' },
+                {
+                  text: 'Oui, supprimer mon compte',
+                  style: 'destructive',
+                  onPress: async () => {
+                    setDeletingAccount(true);
+                    try {
+                      // Supprime le profil en DB (cascade supprime tout via FK)
+                      await supabase.from('profiles').delete().eq('id', user.id);
+                      // Déconnecte localement (le compte auth reste, l'admin devra le supprimer)
+                      await supabase.auth.signOut();
+                    } catch {
+                      Alert.alert('Erreur', 'La suppression a échoué. Contactez support@happipet.fr');
+                    } finally {
+                      setDeletingAccount(false);
+                    }
+                  },
+                },
+              ]
+            );
+          },
+        },
+      ]
+    );
+  };
   const handlePasswordReset = () => {
     Alert.alert(
       'Réinitialiser le mot de passe',
@@ -162,9 +204,30 @@ export const SettingsScreen = ({ navigation }) => {
         {/* Support */}
         <Text style={styles.sectionLabel}>Support</Text>
         <View style={styles.sectionCard}>
-          <SettingItem icon="help-outline" label="Centre d'aide" color={Colors.secondary} onPress={() => Alert.alert("Centre d'aide", 'Contactez-nous à support@happipet.fr')} />
-          <SettingItem icon="description" label="Conditions d'utilisation" color={Colors.onSurfaceVariant} onPress={() => Alert.alert("Conditions d'utilisation", "Les conditions d'utilisation seront accessibles prochainement.")} />
-          <SettingItem icon="privacy-tip" label="Politique de confidentialité" color={Colors.onSurfaceVariant} onPress={() => Alert.alert('Confidentialité', 'La politique de confidentialité sera accessible prochainement.')} />
+          <SettingItem icon="help-outline" label="Centre d'aide" color={Colors.secondary} onPress={() => Linking.openURL('mailto:support@happipet.fr')} />
+          <SettingItem icon="description" label="Conditions d'utilisation" color={Colors.onSurfaceVariant} onPress={() => Linking.openURL('https://happipet.fr/cgu')} />
+          <SettingItem icon="privacy-tip" label="Politique de confidentialité" color={Colors.onSurfaceVariant} onPress={() => Linking.openURL('https://happipet.fr/confidentialite')} />
+        </View>
+
+        {/* Danger Zone */}
+        <Text style={styles.sectionLabel}>Zone danger</Text>
+        <View style={styles.sectionCard}>
+          <SettingItem
+            icon="logout"
+            label="Se déconnecter"
+            color={Colors.error}
+            onPress={() => Alert.alert('Déconnexion', 'Voulez-vous vous déconnecter ?', [
+              { text: 'Annuler', style: 'cancel' },
+              { text: 'Déconnecter', style: 'destructive', onPress: () => supabase.auth.signOut() },
+            ])}
+          />
+          <SettingItem
+            icon="delete-forever"
+            label="Supprimer mon compte"
+            color={Colors.error}
+            onPress={handleDeleteAccount}
+            showChevron={false}
+          />
         </View>
 
         <Text style={styles.versionText}>Happipet v1.0.0</Text>

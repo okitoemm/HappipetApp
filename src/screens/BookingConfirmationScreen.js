@@ -23,7 +23,7 @@ export const BookingConfirmationScreen = ({ route, navigation }) => {
 
         <Text style={styles.title}>Réservation confirmée !</Text>
         <Text style={styles.subtitle}>
-          Votre demande de garde a été envoyée à {sitter?.name || 'le gardien'}.
+          Votre demande de garde a été envoyée à {sitter?.user?.full_name || sitter?.name || 'le gardien'}.
           Vous recevrez une confirmation sous peu.
         </Text>
 
@@ -32,7 +32,7 @@ export const BookingConfirmationScreen = ({ route, navigation }) => {
           <View style={styles.detailRow}>
             <MaterialIcons name="person" size={20} color={Colors.primary} />
             <Text style={styles.detailLabel}>Gardien</Text>
-            <Text style={styles.detailValue}>{sitter?.name || '-'}</Text>
+            <Text style={styles.detailValue}>{sitter?.user?.full_name || sitter?.name || '-'}</Text>
           </View>
           <View style={styles.detailRow}>
             <MaterialIcons name="wb-sunny" size={20} color={Colors.primary} />

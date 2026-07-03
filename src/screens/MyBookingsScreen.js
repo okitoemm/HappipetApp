@@ -21,6 +21,7 @@ import { createReview, getMyBookings, updateBookingStatus } from '../services/ap
 
 const STATUS_LABELS = { pending: 'En attente', confirmed: 'Confirmée', completed: 'Terminée', cancelled: 'Annulée' };
 const STATUS_TAB = { pending: 'upcoming', confirmed: 'upcoming', completed: 'completed', cancelled: 'cancelled' };
+const SERVICE_LABELS = { walk: 'Promenade', hosting: 'Hébergement', daycare: 'Garde journée', medical: 'Soins médicaux' };
 
 const normalizeBooking = (b) => ({
   ...b,
@@ -29,6 +30,7 @@ const normalizeBooking = (b) => ({
   pet: b.pet?.name || '-',
   dates: b.start_date ? `${new Date(b.start_date).toLocaleDateString('fr-FR')} → ${new Date(b.end_date).toLocaleDateString('fr-FR')}` : '-',
   total: b.total_price != null ? `${b.total_price}€` : '-',
+  service: SERVICE_LABELS[b.service_type] || b.service_type || 'Service',
   statusLabel: STATUS_LABELS[b.status] || b.status,
   statusTab: STATUS_TAB[b.status] || b.status,
 });

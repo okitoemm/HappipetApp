@@ -7,7 +7,6 @@ import { ActivityIndicator, View } from 'react-native';
 
 import Colors from '../constants/colors';
 import { useAuth } from '../contexts/AuthContext';
-import { getMyNotifications } from '../services/api';
 import {
     BookingConfirmationScreen,
     BookingScreen,
@@ -25,6 +24,7 @@ import {
     SettingsScreen,
     UserProfileScreen,
 } from '../screens';
+import { getMyNotifications } from '../services/api';
 
 const Tab = createBottomTabNavigator();
 const Stack = createStackNavigator();

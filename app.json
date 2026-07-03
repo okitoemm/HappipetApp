@@ -7,23 +7,74 @@
     "icon": "./assets/images/icon.png",
     "scheme": "happipet",
     "userInterfaceStyle": "light",
+    "newArchEnabled": true,
     "splash": {
       "image": "./assets/images/splash-icon.png",
       "resizeMode": "contain",
       "backgroundColor": "#f8f9fa"
     },
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": false,
+      "bundleIdentifier": "com.happipet.app",
+      "buildNumber": "1",
+      "deploymentTarget": "15.1",
+      "infoPlist": {
+        "NSPhotoLibraryUsageDescription": "Happipet a besoin d'accéder à votre galerie pour ajouter des photos de vos animaux et publications.",
+        "NSPhotoLibraryAddUsageDescription": "Happipet a besoin d'enregistrer des photos dans votre galerie.",
+        "NSCameraUsageDescription": "Happipet a besoin de la caméra pour prendre des photos de vos animaux.",
+        "NSLocationWhenInUseUsageDescription": "Happipet utilise votre position pour trouver des gardiens près de chez vous.",
+        "NSUserNotificationsUsageDescription": "Activez les notifications pour recevoir des alertes de messages et de réservations.",
+        "ITSAppUsesNonExemptEncryption": false
+      }
     },
     "android": {
+      "package": "com.happipet.app",
+      "versionCode": 1,
+      "compileSdkVersion": 35,
+      "targetSdkVersion": 35,
+      "minSdkVersion": 24,
       "adaptiveIcon": {
         "backgroundColor": "#f8f9fa",
-        "foregroundImage": "./assets/images/android-icon-foreground.png"
+        "foregroundImage": "./assets/images/android-icon-foreground.png",
+        "monochromeImage": "./assets/images/android-icon-monochrome.png"
       },
+      "permissions": [
+        "android.permission.CAMERA",
+        "android.permission.READ_EXTERNAL_STORAGE",
+        "android.permission.READ_MEDIA_IMAGES",
+        "android.permission.RECORD_AUDIO",
+        "android.permission.ACCESS_COARSE_LOCATION",
+        "android.permission.ACCESS_FINE_LOCATION",
+        "android.permission.VIBRATE",
+        "android.permission.RECEIVE_BOOT_COMPLETED"
+      ],
       "edgeToEdgeEnabled": false
     },
     "web": {
       "favicon": "./assets/images/favicon.png"
+    },
+    "plugins": [
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Happipet a besoin d'accéder à votre galerie pour ajouter des photos.",
+          "cameraPermission": "Happipet a besoin de la caméra pour prendre des photos."
+        }
+      ],
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/images/icon.png",
+          "color": "#6366f1",
+          "sounds": [],
+          "iosDisplayInForeground": true
+        }
+      ]
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "REMPLACE_PAR_TON_EAS_PROJECT_ID"
+      }
     }
   }
 }

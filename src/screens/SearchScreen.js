@@ -15,6 +15,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { FilterChip } from '../components';
 import Colors from '../constants/colors';
+import { getSitters } from '../services/api';
 
 const WEEK_DAYS = ['Dim', 'Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam'];
 const MONTHS    = ['Jan', 'Fév', 'Mar', 'Avr', 'Mai', 'Jun', 'Jul', 'Aoû', 'Sep', 'Oct', 'Nov', 'Déc'];
@@ -32,7 +33,6 @@ function generateSearchDates() {
   });
 }
 const SEARCH_DATES = generateSearchDates();
-import { getSitters } from '../services/api';
 
 const SearchResultCard = ({ sitter, onPress }) => {
   return (
@@ -119,21 +119,48 @@ export const SearchScreen = ({ navigation }) => {
   const filters = ['Prix', "Type d'hébergement", 'Disponibilité', 'Rayon +5km'];
   const animals = ['Chien', 'Chat', 'Autre'];
 
-  const fetchSitters = useCallback(async (city = '') => {
+  const ANIMAL_SERVICES_MAP = {
+    'Chien': ['chien', 'dog', 'canin'],
+    'Chat': ['chat', 'cat', 'félin'],
+    'Autre': ['autre', 'other', 'rongeur', 'oiseau'],
+  };
+
+  const fetchSitters = useCallback(async (city = '', sortBy = selectedFilter) => {
     setLoading(true);
     setError(null);
     try {
       const data = await getSitters({ city: city || undefined });
-      setSitters(data);
+
+      // Client-side animal filter
+      let filtered = data;
+      if (selectedAnimal) {
+        const keywords = ANIMAL_SERVICES_MAP[selectedAnimal] || [];
+        filtered = data.filter(s => {
+          const services = (s.services || []).join(' ').toLowerCase();
+          const desc = (s.description || '').toLowerCase();
+          return keywords.length === 0 || keywords.some(k => services.includes(k) || desc.includes(k));
+        });
+        // If no matches, show all (graceful degradation)
+        if (filtered.length === 0) filtered = data;
+      }
+
+      // Client-side sort
+      if (sortBy === 'Prix') {
+        filtered = [...filtered].sort((a, b) => (a.price_per_day ?? 999) - (b.price_per_day ?? 999));
+      } else if (sortBy === 'Disponibilité') {
+        filtered = [...filtered].sort((a, b) => (b.rating ?? 0) - (a.rating ?? 0));
+      }
+
+      setSitters(filtered);
     } catch (e) {
       setError('Impossible de charger les gardiens.');
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [selectedAnimal, selectedFilter]);
 
   useEffect(() => {
-    fetchSitters();
+    fetchSitters(location);
   }, [fetchSitters]);
 
   const handleSearch = () => fetchSitters(location);

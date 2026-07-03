@@ -3,7 +3,10 @@ import { useEffect, useState } from 'react';
 import {
     ActivityIndicator,
     Alert,
+    Dimensions,
+    FlatList,
     Image,
+    Modal,
     ScrollView,
     StyleSheet,
     Text,
@@ -15,6 +18,8 @@ import Colors from '../constants/colors';
 import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../lib/supabase';
 import { getSitterGallery, getSitterReviews, toggleFavorite } from '../services/api';
+
+const { width } = Dimensions.get('window');
 
 const ReviewItem = ({ review }) => {
   return (
@@ -62,11 +67,12 @@ export const ProfileScreen = ({ route, navigation }) => {
   const { sitter } = route.params || {};
   const { user } = useAuth();
 
-  const [reviews, setReviews]       = useState([]);
-  const [gallery, setGallery]       = useState([]);
-  const [loading, setLoading]       = useState(true);
-  const [isFavorite, setIsFavorite] = useState(false);
-  const [favLoading, setFavLoading] = useState(false);
+  const [reviews, setReviews]           = useState([]);
+  const [gallery, setGallery]           = useState([]);
+  const [loading, setLoading]           = useState(true);
+  const [isFavorite, setIsFavorite]     = useState(false);
+  const [favLoading, setFavLoading]     = useState(false);
+  const [galleryModal, setGalleryModal] = useState(false);
 
   useEffect(() => {
     if (!sitter?.id) { setLoading(false); return; }
@@ -199,9 +205,9 @@ export const ProfileScreen = ({ route, navigation }) => {
                 <View style={styles.sectionTitleBar} />
                 <Text style={styles.sectionTitle}>Galerie d'animaux gardés</Text>
               </View>
-              {sitter.gallery && sitter.gallery.length > 4 && (
-                <TouchableOpacity onPress={() => Alert.alert('Galerie', 'La galerie complète sera disponible prochainement.')}>
-                  <Text style={styles.seeAllLink}>Voir tout</Text>
+              {gallery.length > 4 && (
+                <TouchableOpacity onPress={() => setGalleryModal(true)}>
+                  <Text style={styles.seeAllLink}>Voir tout ({gallery.length})</Text>
                 </TouchableOpacity>
               )}
             </View>
@@ -268,6 +274,26 @@ export const ProfileScreen = ({ route, navigation }) => {
           <View style={{ height: 20 }} />
         </View>
       </ScrollView>
+
+      {/* Full Gallery Modal */}
+      <Modal visible={galleryModal} animationType="slide" onRequestClose={() => setGalleryModal(false)}>
+        <SafeAreaView style={{ flex: 1, backgroundColor: '#000' }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', padding: 16 }}>
+            <TouchableOpacity onPress={() => setGalleryModal(false)}>
+              <MaterialIcons name="close" size={28} color="#fff" />
+            </TouchableOpacity>
+            <Text style={{ color: '#fff', fontSize: 16, fontWeight: '700', marginLeft: 12 }}>Galerie ({gallery.length} photos)</Text>
+          </View>
+          <FlatList
+            data={gallery}
+            numColumns={2}
+            keyExtractor={(item, i) => i.toString()}
+            renderItem={({ item }) => (
+              <Image source={{ uri: item }} style={{ width: width / 2 - 2, height: width / 2 - 2, margin: 1 }} resizeMode="cover" />
+            )}
+          />
+        </SafeAreaView>
+      </Modal>
     </SafeAreaView>
   );
 };
